@@ -55,6 +55,7 @@
         <kbd>Arrows</kbd>/<kbd>Numpad</kbd>/<kbd>vi-keys</kbd>: Move/Attack. <kbd>.</kbd> or <kbd>5</kbd>: Rest. <kbd>&lt;</kbd> <kbd>&gt;</kbd>: Stairs.<br>
         <kbd>w</kbd> Wield/Wear, <kbd>t</kbd> Take off, <kbd>d</kbd> Drop, <kbd>m</kbd> Magic/Pray, <kbd>E</kbd> Eat, <kbd>q</kbd> Quaff, <kbd>r</kbd> Read, <kbd>z</kbd> Zap, <kbd>i</kbd> Inv, <kbd>e</kbd> Equip.<br>
         <kbd>T</kbd> Tunnel, <kbd>s</kbd> Search, <kbd>D</kbd> Disarm Trap, <kbd>c</kbd> Close Door, <kbd>x</kbd> Examine. Bump <kbd>1</kbd>-<kbd>6</kbd> in Town for Shops.
+        <br><kbd>S</kbd> Save & Quit.
     </div>
 </div>
 
@@ -199,6 +200,7 @@ window.onload = () => {
             this.ctx = this.canvas.getContext('2d');
             this.ctx.font = `bold ${CELL_SIZE}px monospace`;
             this.ctx.textBaseline = 'top';
+            this.messages = [];
 
             this.advanceTurn = this.advanceTurn.bind(this);
             this.updateHunger = this.updateHunger.bind(this);
@@ -206,21 +208,32 @@ window.onload = () => {
             this.executeDirectionAction = this.executeDirectionAction.bind(this);
             this.movePlayer = this.movePlayer.bind(this);
             this.handleShopInput = this.handleShopInput.bind(this);
+            this.saveGame = this.saveGame.bind(this);
+            this.loadGame = this.loadGame.bind(this);
 
             this.bindEvents();
-            this.state = 'START';
+            this.state = 'MAIN_MENU';
             this.draw();
         }
 
-        initCharacter(raceIdx, clsIdx) {
-            let r = RACES[raceIdx];
-            let c = CLASSES[clsIdx];
+        rollStats() {
+            let r = RACES[this.selRace];
+            let c = CLASSES[this.selClass];
+            this.tempStats = {
+                STR: 10 + RNG.roll(1, 4) + r.str + c.str,
+                INT: 10 + RNG.roll(1, 4) + r.int + c.int,
+                WIS: 10 + RNG.roll(1, 4) + r.wis + c.wis,
+                DEX: 10 + RNG.roll(1, 4) + r.dex + c.dex,
+                CON: 10 + RNG.roll(1, 4) + r.con + c.con
+            };
+            for(let key in this.tempStats) this.tempStats[key] = Math.max(3, this.tempStats[key]);
+        }
+
+        finalizeCharacter() {
+            let r = RACES[this.selRace];
+            let c = CLASSES[this.selClass];
             
-            let str = 12 + r.str + c.str;
-            let int = 12 + r.int + c.int;
-            let wis = 12 + r.wis + c.wis;
-            let dex = 12 + r.dex + c.dex;
-            let con = 12 + r.con + c.con;
+            let str = this.tempStats.STR, int = this.tempStats.INT, wis = this.tempStats.WIS, dex = this.tempStats.DEX, con = this.tempStats.CON;
 
             let hp = c.hp + Math.floor((con - 10)/2);
             let maxMana = c.magic === 'mage' ? Math.max(0, int - 10) * 2 : (c.magic === 'priest' ? Math.max(0, wis - 10) * 2 : 0);
@@ -230,7 +243,7 @@ window.onload = () => {
             
             this.player = {
                 x: 0, y: 0,
-                name: 'Player', race: r.name, cls: c.name, magicType: c.magic,
+                name: this.tempName.trim() || 'Player', race: r.name, cls: c.name, magicType: c.magic,
                 level: 1, exp: 0, nextExp: 50,
                 hp: hp, maxHp: hp,
                 mana: maxMana, maxMana: maxMana,
@@ -243,13 +256,51 @@ window.onload = () => {
             };
 
             // Give starting torch
-            this.player.equip.light = { type: 'light', char: '~', color: COLORS.light, name: 'Wooden Torch', radius: 5, life: 300, val: 5 };
+            this.player.equip.light = { type: 'light', char: '~', color: COLORS.light, name: 'Wooden Torch', radius: 5, life: 300, val: 5, weight: 15 };
 
             this.shops = Array(6).fill(0).map((_, i) => this.generateShopInventory(i));
             this.state = 'PLAY';
             this.generateLevel();
-            this.log(`Welcome to the Dungeons of Moria, ${r.name} ${c.name}.`);
+            this.log(`Welcome to the Dungeons of Moria, ${this.player.name}.`);
             this.draw();
+        }
+
+        saveGame() {
+            const saveState = {
+                player: this.player, map: this.map, monsters: this.monsters,
+                items: this.items, depth: this.depth, turn: this.turn,
+                messages: this.messages, shops: this.shops
+            };
+            localStorage.setItem('moriaSave', JSON.stringify(saveState));
+            this.state = 'MAIN_MENU';
+            this.log("Game Saved.", COLORS.warn);
+            this.draw();
+        }
+
+        loadGame() {
+            const saveStr = localStorage.getItem('moriaSave');
+            if (saveStr) {
+                const saveState = JSON.parse(saveStr);
+                this.player = saveState.player; this.map = saveState.map;
+                this.monsters = saveState.monsters; this.items = saveState.items;
+                this.depth = saveState.depth; this.turn = saveState.turn;
+                this.messages = saveState.messages; this.shops = saveState.shops;
+                this.state = 'PLAY';
+                this.log("Game loaded successfully.", COLORS.player);
+                this.updateFOV();
+                this.draw();
+            } else {
+                this.log("No save game found.", COLORS.warn);
+                this.draw();
+            }
+        }
+
+        getWeight() {
+            if(!this.player) return 0;
+            let w = 0;
+            for(let i of this.player.inventory) w += i.weight || 0;
+            for(let k in this.player.equip) if(this.player.equip[k]) w += this.player.equip[k].weight || 0;
+            return w;
         }
 
         generateShopInventory(shopIdx) {
@@ -260,23 +311,45 @@ window.onload = () => {
         }
 
         log(msg, color = COLORS.msg) {
+            if (!this.messages) this.messages = [];
             this.messages.push({ text: msg, color: color });
             if (this.messages.length > 10) this.messages.shift();
         }
 
         bindEvents() {
             window.addEventListener('keydown', (e) => {
-                if (this.state === 'START') { this.state = 'CHAR_RACE'; this.draw(); return; }
+                if (this.state === 'MAIN_MENU') {
+                    if (e.key.toLowerCase() === 'n') { this.state = 'CHAR_RACE'; this.draw(); }
+                    if (e.key.toLowerCase() === 'l') { this.loadGame(); }
+                    return;
+                }
+                if (this.state === 'START') { this.state = 'MAIN_MENU'; this.draw(); return; }
                 if (this.state === 'CHAR_RACE') {
                     if (e.key >= 'a' && e.key <= 'd') { this.selRace = e.key.charCodeAt(0)-97; this.state = 'CHAR_CLASS'; this.draw(); }
                     return;
                 }
                 if (this.state === 'CHAR_CLASS') {
-                    if (e.key >= 'a' && e.key <= 'd') { this.initCharacter(this.selRace, e.key.charCodeAt(0)-97); }
+                    if (e.key >= 'a' && e.key <= 'd') { 
+                        this.selClass = e.key.charCodeAt(0)-97; 
+                        this.rollStats();
+                        this.state = 'CHAR_ROLL';
+                        this.draw();
+                    }
+                    return;
+                }
+                if (this.state === 'CHAR_ROLL') {
+                    if (e.key === ' ') { this.rollStats(); this.draw(); }
+                    if (e.key === 'Enter') { this.state = 'CHAR_NAME'; this.tempName = ""; this.draw(); }
+                    return;
+                }
+                if (this.state === 'CHAR_NAME') {
+                    if (e.key === 'Enter' && this.tempName.trim().length > 0) { this.finalizeCharacter(); }
+                    else if (e.key === 'Backspace') { this.tempName = this.tempName.slice(0, -1); this.draw(); }
+                    else if (e.key.length === 1 && /[a-zA-Z ]/.test(e.key) && this.tempName.length < 15) { this.tempName += e.key; this.draw(); }
                     return;
                 }
                 if (this.state === 'DEAD' || this.state === 'WIN') {
-                    if (e.key === 'Enter') { this.state = 'START'; this.draw(); }
+                    if (e.key === 'Enter') { this.state = 'MAIN_MENU'; this.draw(); }
                     return;
                 }
 
@@ -350,7 +423,7 @@ window.onload = () => {
                 let dx = 0, dy = 0, acted = false;
                 let dir = this.getDirectionFromKey(e.key);
                 
-                if (this.player.confused > 0 && dir) {
+                if (this.player && this.player.confused > 0 && dir) {
                     // Randomize movement if confused
                     let dirs = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0},{dx:-1,dy:-1},{dx:1,dy:-1},{dx:-1,dy:1},{dx:1,dy:1}];
                     dir = dirs[RNG.rand(0, 7)];
@@ -370,6 +443,7 @@ window.onload = () => {
                         case 'z': this.promptSelectItem('ZAP', 'Zap which wand?'); e.preventDefault(); return;
                         case 'r': this.promptSelectItem('READ', 'Read which scroll?'); e.preventDefault(); return;
                         case 'm': this.openSpellMenu(); e.preventDefault(); return;
+                        case 'S': this.saveGame(); e.preventDefault(); return;
                         
                         case 's': this.searchSurroundings(); acted = true; break;
                         case 'T': this.promptDirection('TUNNEL', 'Tunnel in which direction?'); e.preventDefault(); return;
@@ -446,6 +520,7 @@ window.onload = () => {
             if (this.player.hp <= 0 && this.state !== 'DEAD') {
                 this.state = 'DEAD';
                 this.player.hp = 0;
+                localStorage.removeItem('moriaSave');
                 this.log("You die.", '#f00');
             }
             this.draw();
@@ -603,10 +678,13 @@ window.onload = () => {
                         this.log("You found some hidden gold!", COLORS.gold);
                     }
                     cell.char = '.'; cell.solid = false; cell.opaque = false;
-                } else if (cell.char === '#' && !cell.isSecretDoor) {
+                } else if (cell.char === '#') {
                     if (RNG.chance(10)) {
                         this.log("You tunnel through the hard rock.");
                         cell.char = '.'; cell.solid = false; cell.opaque = false;
+                        if(cell.isSecretDoor) {
+                            cell.isSecretDoor = false;
+                        }
                     } else this.log("You strike the rock, but it holds firm.");
                 } else if (cell.isSecretDoor) {
                     this.log("You bash the rock, revealing a door!");
@@ -924,6 +1002,12 @@ window.onload = () => {
             let nx = this.player.x + dx, ny = this.player.y + dy;
             if (nx < 0 || ny < 0 || nx >= MAP_COLS || ny >= MAP_ROWS) return;
 
+            let maxWeight = this.player.stats.STR * 15;
+            if (this.getWeight() > maxWeight && RNG.chance(50)) {
+                this.log("You are carrying too much weight to move!", COLORS.warn);
+                return; // Consumes action but doesn't move
+            }
+
             let targetCell = this.map[ny][nx];
             if (targetCell.isShop) { this.enterShop(parseInt(targetCell.char) - 1); return; }
             if (targetCell.char === '+' && !targetCell.isSecretDoor) {
@@ -974,6 +1058,7 @@ window.onload = () => {
                     
                     if (m.isBoss) {
                         this.state = 'WIN';
+                        localStorage.removeItem('moriaSave');
                         this.log("*** CONGRATULATIONS *** You have defeated the Balrog!", '#00ff00');
                         this.log("Press Enter to play again.", '#00ff00');
                     }
@@ -1044,11 +1129,15 @@ window.onload = () => {
         draw() {
             this.ctx.fillStyle = COLORS.bg; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-            if (this.state === 'START' || this.state === 'CHAR_RACE' || this.state === 'CHAR_CLASS') { this.drawCharCreation(); return; }
+            if (this.state === 'MAIN_MENU') { this.drawMainMenu(); return; }
+            if (this.state === 'START' || this.state === 'CHAR_RACE' || this.state === 'CHAR_CLASS' || this.state === 'CHAR_ROLL' || this.state === 'CHAR_NAME') { this.drawCharCreation(); return; }
             if (this.state === 'SHOP') { this.drawShop(); return; }
 
-            let camX = Math.max(0, Math.min(MAP_COLS - VIEW_COLS, this.player.x - Math.floor(VIEW_COLS / 2)));
-            let camY = Math.max(0, Math.min(MAP_ROWS - VIEW_ROWS, this.player.y - Math.floor(VIEW_ROWS / 2)));
+            let camX = 0, camY = 0;
+            if (this.player) {
+                camX = Math.max(0, Math.min(MAP_COLS - VIEW_COLS, this.player.x - Math.floor(VIEW_COLS / 2)));
+                camY = Math.max(0, Math.min(MAP_ROWS - VIEW_ROWS, this.player.y - Math.floor(VIEW_ROWS / 2)));
+            }
 
             for (let vy = 0; vy < VIEW_ROWS; vy++) {
                 for (let vx = 0; vx < VIEW_COLS; vx++) {
@@ -1082,6 +1171,19 @@ window.onload = () => {
             else if (this.state === 'SPELL_MENU') this.drawSpellOverlay();
         }
 
+        drawMainMenu() {
+            this.drawText("=======================================", 25, 10, COLORS.ui);
+            this.drawText("         THE DUNGEONS OF MORIA         ", 25, 12, COLORS.player);
+            this.drawText("=======================================", 25, 14, COLORS.ui);
+            
+            this.drawText("[N]ew Game", 34, 20, COLORS.text);
+            this.drawText("[L]oad Game", 34, 22, COLORS.text);
+            
+            if (this.messages && this.messages.length > 0) {
+                this.drawText(this.messages[this.messages.length - 1].text, 25, 26, this.messages[this.messages.length - 1].color);
+            }
+        }
+
         drawCharCreation() {
             this.drawText("Web Moria - Character Creation", 25, 5, COLORS.player);
             if (this.state === 'START' || this.state === 'CHAR_RACE') {
@@ -1091,6 +1193,19 @@ window.onload = () => {
                 this.drawText(`Race: ${RACES[this.selRace].name}`, 25, 6, COLORS.ui);
                 this.drawText("Select a Class:", 25, 8, COLORS.ui);
                 for(let i=0; i<CLASSES.length; i++) this.drawText(`${String.fromCharCode(97+i)}) ${CLASSES[i].name}`, 27, 10+i, COLORS.text);
+            } else if (this.state === 'CHAR_ROLL') {
+                this.drawText(`Race: ${RACES[this.selRace].name}   Class: ${CLASSES[this.selClass].name}`, 25, 6, COLORS.ui);
+                this.drawText("Your Attributes:", 25, 9, COLORS.text);
+                let r=11;
+                for(let k in this.tempStats) {
+                    this.drawText(`${k}: ${this.tempStats[k]}`, 27, r++, COLORS.gold);
+                }
+                this.drawText("Press [Space] to Reroll, [Enter] to Accept.", 25, 18, COLORS.ui);
+            } else if (this.state === 'CHAR_NAME') {
+                this.drawText(`Race: ${RACES[this.selRace].name}   Class: ${CLASSES[this.selClass].name}`, 25, 6, COLORS.ui);
+                this.drawText("Enter your character's name:", 25, 9, COLORS.ui);
+                this.drawText("> " + (this.tempName || "") + "_", 27, 11, COLORS.text);
+                this.drawText("Press [Enter] to Begin.", 25, 15, COLORS.ui);
             }
         }
 
@@ -1169,14 +1284,18 @@ window.onload = () => {
             let totalAC = this.player.ac + (this.player.equip.armor ? this.player.equip.armor.ac : 0) + (this.player.equip.shield ? this.player.equip.shield.ac : 0) + (this.player.equip.ring ? this.player.equip.ring.ac : 0);
             this.drawText(`AC : ${totalAC}`, uiX, 13, COLORS.text); this.drawText(`GLD: ${this.player.gold}`, uiX, 14, COLORS.gold); this.drawText(`FOD: ${this.player.food}`, uiX, 15, this.player.food < 200 ? COLORS.warn : COLORS.food);
             
-            this.drawText("--- EQUIPMENT ---", uiX, 17, COLORS.ui); 
-            this.drawText(`W: ${this.player.equip.weapon ? this.player.equip.weapon.name : 'Bare Hands'}`, uiX, 18, COLORS.weapon); 
-            this.drawText(`A: ${this.player.equip.armor ? this.player.equip.armor.name : 'No Armor'}`, uiX, 19, COLORS.armor);
-            this.drawText(`L: ${this.player.equip.light ? this.player.equip.light.name : 'No Light'}`, uiX, 20, COLORS.light);
+            let wgt = this.getWeight();
+            let maxWgt = this.player.stats.STR * 15;
+            this.drawText(`WGT: ${wgt}/${maxWgt}`, uiX, 16, wgt > maxWgt ? COLORS.warn : COLORS.text);
 
-            this.drawText("--- INVENTORY ---", uiX, 22, COLORS.ui);
-            for(let i=0; i<Math.min(7, this.player.inventory.length); i++) this.drawText(`${String.fromCharCode(97+i)}) ${this.player.inventory[i].name}`, uiX, 23 + i, this.player.inventory[i].color);
-            if (this.player.inventory.length > 7) this.drawText("...", uiX, 30, COLORS.ui);
+            this.drawText("--- EQUIPMENT ---", uiX, 18, COLORS.ui); 
+            this.drawText(`W: ${this.player.equip.weapon ? this.player.equip.weapon.name : 'Bare Hands'}`, uiX, 19, COLORS.weapon); 
+            this.drawText(`A: ${this.player.equip.armor ? this.player.equip.armor.name : 'No Armor'}`, uiX, 20, COLORS.armor);
+            this.drawText(`L: ${this.player.equip.light ? this.player.equip.light.name : 'No Light'}`, uiX, 21, COLORS.light);
+
+            this.drawText("--- INVENTORY ---", uiX, 23, COLORS.ui);
+            for(let i=0; i<Math.min(6, this.player.inventory.length); i++) this.drawText(`${String.fromCharCode(97+i)}) ${this.player.inventory[i].name}`, uiX, 24 + i, this.player.inventory[i].color);
+            if (this.player.inventory.length > 6) this.drawText("...", uiX, 30, COLORS.ui);
             
             let depthText = this.depth === 0 ? "Town Level" : `Depth: ${this.depth * 50} ft`;
             this.drawText(depthText, uiX, 32, COLORS.ui);
