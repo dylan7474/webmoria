@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Moria</title>
+    <style>
+        body {
+            background-color: #000;
+            color: #ccc;
+            font-family: monospace;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            background-color: #000;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+            border: 1px solid #333;
+            cursor: crosshair;
+        }
+        #instructions {
+            margin-top: 10px;
+            color: #888;
+            font-size: 13px;
+            text-align: center;
+            line-height: 1.4;
+            max-width: 960px;
+        }
+        kbd {
+            background: #222;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #fff;
+            border: 1px solid #444;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="1280" height="720"></canvas>
+    <div id="instructions">
+        <kbd>Arrows</kbd>/<kbd>Numpad</kbd>/<kbd>vi-keys</kbd>: Move/Attack. <kbd>.</kbd> or <kbd>5</kbd>: Rest. <kbd>&lt;</kbd> <kbd>&gt;</kbd>: Stairs.<br>
+        <kbd>w</kbd> Wield/Wear, <kbd>t</kbd> Take off, <kbd>d</kbd> Drop, <kbd>E</kbd> Eat, <kbd>q</kbd> Quaff, <kbd>r</kbd> Read, <kbd>z</kbd> Zap, <kbd>i</kbd> Inv, <kbd>e</kbd> Equip.<br>
+        <kbd>T</kbd> Tunnel, <kbd>s</kbd> Search, <kbd>D</kbd> Disarm Trap, <kbd>c</kbd> Close Door, <kbd>x</kbd> Examine. Bump <kbd>1</kbd>-<kbd>6</kbd> in Town for Shops.
+    </div>
+</div>
+
+<script>
+/**
+ * Web Moria - Ultimate Demake
+ * Features: Classes, Races, Tunneling, Traps, Searching, Disarming, Closing Doors, Wands, Scrolls, Shops, FOV.
+ */
+
+// --- CONFIGURATION & CONSTANTS ---
+var CELL_SIZE = 16;
+var COLS = 80;         
+var ROWS = 45;         
+var UI_COLS = 22;      
+var VIEW_COLS = COLS - UI_COLS; 
+var VIEW_ROWS = ROWS - 2;       
+
+var MAP_COLS = 120;    
+var MAP_ROWS = 60;
+var FOV_RADIUS = 9;
+var MAX_DEPTH = 50;
+
+var COLORS = {
+    bg: '#000000', fg: '#cccccc',
+    wall: '#666666', wallHidden: '#222222',
+    floor: '#aaaaaa', floorHidden: '#333333',
+    rubble: '#887755', vein: '#aaaa88',
+    door: '#cc8833', doorHidden: '#442211',
+    player: '#00ff00', monster: '#ff5555',
+    gold: '#ffff00', potion: '#00ffff', food: '#ccaa44',
+    weapon: '#aaaaaa', armor: '#cccccc', scroll: '#dddddd', wand: '#ffaa00', trap: '#ff0000',
+    shop: '#ff00ff', stair: '#ffffff', text: '#ffffff', ui: '#888888', msg: '#00ffff', warn: '#ffaa00'
+};
+
+var RACES = [
+    { name: "Human", str: 0, int: 0, wis: 0, dex: 0, con: 0 },
+    { name: "Elf", str: -1, int: 2, wis: 1, dex: 1, con: -2 },
+    { name: "Dwarf", str: 2, int: -2, wis: 1, dex: -2, con: 2 },
+    { name: "Hobbit", str: -2, int: 1, wis: 1, dex: 3, con: 1 }
+];
+
+var CLASSES = [
+    { name: "Warrior", hp: 12, str: 2, int: -2, wis: -2, dex: 1, con: 2 },
+    { name: "Mage", hp: 6, str: -2, int: 3, wis: 0, dex: 1, con: -1 },
+    { name: "Rogue", hp: 8, str: -1, int: 1, wis: -1, dex: 3, con: 0 },
+    { name: "Priest", hp: 9, str: 0, int: -1, wis: 3, dex: 0, con: 1 }
+];
+
+var SHOP_DATA = [
+    { name: "General Store", owner: "Erick the Honest", types: ['food'] },
+    { name: "Armory", owner: "Mauglin the Grumpy", types: ['armor'] },
+    { name: "Weaponsmith", owner: "Arndal Beast-Slayer", types: ['weapon'] },
+    { name: "Temple", owner: "Hardblow the Humble", types: ['potion', 'scroll'] },
+    { name: "Alchemy Shop", owner: "Ga-nat the Greedy", types: ['potion', 'scroll'] },
+    { name: "Magic Shop", owner: "Valeria Starshine", types: ['wand', 'scroll', 'potion'] }
+];
+
+var HAGGLE_INSULTS = [
+    "That's an insult!",
+    "You'll force me bankrupt!",
+    "May your chickens grow lips!",
+    "Are you mad?!?",
+    "My mother you can get for that, this costs more!",
+    "You drive a hard bargain, but no."
+];
+
+var HAGGLE_ACCEPTS = [
+    "Done!",
+    "A pleasure to do business with you!",
+    "You drive a hard bargain, but taken.",
+    "Agreed!",
+    "Sigh. I'll take it."
+];
+
+var MONSTER_TYPES = [
+    { char: 'r', name: 'Giant Rat', hp: 4, atk: 2, ac: 2, exp: 2, color: '#888888', minDepth: 1 },
+    { char: 'k', name: 'Kobold', hp: 8, atk: 3, ac: 4, exp: 5, color: '#ff5555', minDepth: 1 },
+    { char: 'j', name: 'Jackal', hp: 10, atk: 4, ac: 3, exp: 8, color: '#aa8844', minDepth: 2 },
+    { char: 'o', name: 'Orc', hp: 15, atk: 5, ac: 6, exp: 10, color: '#55ff55', minDepth: 3 },
+    { char: 's', name: 'Skeleton', hp: 20, atk: 6, ac: 8, exp: 15, color: '#dddddd', minDepth: 4 },
+    { char: 'z', name: 'Zombie', hp: 25, atk: 7, ac: 5, exp: 20, color: '#66aa66', minDepth: 5 },
+    { char: 'T', name: 'Troll', hp: 45, atk: 12, ac: 10, exp: 40, color: '#00aa00', minDepth: 8 },
+    { char: 'O', name: 'Ogre', hp: 55, atk: 14, ac: 12, exp: 55, color: '#aaffaa', minDepth: 10 },
+    { char: 'V', name: 'Vampire', hp: 80, atk: 18, ac: 15, exp: 100, color: '#ff00ff', minDepth: 15 },
+    { char: 'D', name: 'Ancient Dragon', hp: 150, atk: 28, ac: 20, exp: 300, color: '#ff0000', minDepth: 25 },
+    { char: 'B', name: 'The Balrog', hp: 600, atk: 50, ac: 30, exp: 10000, color: '#ff8800', minDepth: 50, isBoss: true }
+];
+
+var LOOT_TABLE = [
+    { type: 'food', char: ',', color: COLORS.food, name: 'Food Ration', val: 5, weight: 30 },
+    { type: 'potion', char: '!', color: COLORS.potion, name: 'Health Potion', val: 25, weight: 20 },
+    { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Phase Door', val: 40, weight: 15, effect: 'phase' },
+    { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Light', val: 30, weight: 10, effect: 'light' },
+    { type: 'wand', char: '-', color: COLORS.wand, name: 'Wand of Magic Missile', val: 100, weight: 10, charges: 5, dmg: 15 },
+    { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Dagger', atk: 2, val: 10, weight: 20 },
+    { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Longsword', atk: 6, val: 80, weight: 15 },
+    { type: 'weapon', char: '\\', color: COLORS.weapon, name: 'Battle Axe', atk: 8, val: 150, weight: 5 },
+    { type: 'armor', char: '[', color: COLORS.armor, name: 'Leather Armor', ac: 2, val: 20, weight: 20 },
+    { type: 'armor', char: '[', color: COLORS.armor, name: 'Chain Mail', ac: 5, val: 90, weight: 15 },
+    { type: 'armor', char: '[', color: COLORS.armor, name: 'Plate Armor', ac: 8, val: 250, weight: 5 }
+];
+
+class RNG {
+    static rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+    static roll(count, sides) { let s = 0; for(let i=0; i<count; i++) s+=this.rand(1,sides); return s; }
+    static chance(pct) { return Math.random() * 100 < pct; }
+    static pickWeight(table, types = null) {
+        let filtered = types ? table.filter(t => types.includes(t.type)) : table;
+        if(filtered.length === 0) filtered = table;
+        let total = filtered.reduce((sum, item) => sum + item.weight, 0);
+        let r = this.rand(1, total), acc = 0;
+        for (let item of filtered) { acc += item.weight; if (r <= acc) return {...item}; }
+        return {...filtered[0]};
+    }
+}
+
+// --- GAME STATE ---
+class Game {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.ctx.font = `bold ${CELL_SIZE}px monospace`;
+        this.ctx.textBaseline = 'top';
+
+        // Bind all methods to ensure 'this' context is never lost
+        this.advanceTurn = this.advanceTurn.bind(this);
+        this.updateHunger = this.updateHunger.bind(this);
+        this.executeItemAction = this.executeItemAction.bind(this);
+        this.executeDirectionAction = this.executeDirectionAction.bind(this);
+
+        this.bindEvents();
+        this.state = 'START';
+        this.draw();
+    }
+
+    initCharacter(raceIdx, clsIdx) {
+        let r = RACES[raceIdx];
+        let c = CLASSES[clsIdx];
+        
+        let str = 12 + r.str + c.str;
+        let int = 12 + r.int + c.int;
+        let wis = 12 + r.wis + c.wis;
+        let dex = 12 + r.dex + c.dex;
+        let con = 12 + r.con + c.con;
+
+        let hp = c.hp + Math.floor((con - 10)/2);
+
+        this.map = [];
+        this.monsters = [];
+        this.items = [];
+        this.messages = [];
+        this.depth = 0; 
+        this.turn = 0;
+        
+        this.player = {
+            x: 0, y: 0,
+            name: 'Player',
+            race: r.name,
+            cls: c.name,
+            level: 1, exp: 0, nextExp: 50,
+            hp: hp, maxHp: hp,
+            gold: 150, food: 1000, maxFood: 1500,
+            ac: 10 + Math.floor((dex - 10)/3),
+            stats: { STR: str, INT: int, WIS: wis, DEX: dex, CON: con },
+            inventory: [], // Max 22 (a - v)
+            equip: { weapon: null, armor: null }
+        };
+
+        this.shops = Array(6).fill(0).map((_, i) => this.generateShopInventory(i));
+        this.state = 'PLAY';
+        this.generateLevel();
+        this.log(`Welcome to the Dungeons of Moria, ${r.name} ${c.name}.`);
+        this.draw();
+    }
+
+    generateShopInventory(shopIdx) {
+        let inv = [];
+        let numItems = RNG.rand(8, 16);
+        for (let i=0; i<numItems; i++) inv.push(RNG.pickWeight(LOOT_TABLE, SHOP_DATA[shopIdx].types));
+        return inv;
+    }
+
+    log(msg, color = COLORS.msg) {
+        this.messages.push({ text: msg, color: color });
+        if (this.messages.length > 10) this.messages.shift();
+    }
+
+    bindEvents() {
+        window.addEventListener('keydown', (e) => {
+            if (this.state === 'START') { this.state = 'CHAR_RACE'; this.draw(); return; }
+            if (this.state === 'CHAR_RACE') {
+                if (e.key >= 'a' && e.key <= 'd') { this.selRace = e.key.charCodeAt(0)-97; this.state = 'CHAR_CLASS'; this.draw(); }
+                return;
+            }
+            if (this.state === 'CHAR_CLASS') {
+                if (e.key >= 'a' && e.key <= 'd') { this.initCharacter(this.selRace, e.key.charCodeAt(0)-97); }
+                return;
+            }
+            if (this.state === 'DEAD' || this.state === 'WIN') {
+                if (e.key === 'Enter') { this.state = 'START'; this.draw(); }
+                return;
+            }
+
+            if (this.state === 'SHOP') { this.handleShopInput(e.key); e.preventDefault(); return; }
+
+            if (this.state === 'INVENTORY' || this.state === 'EQUIPMENT') {
+                if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') { this.state = 'PLAY'; this.draw(); }
+                e.preventDefault(); return;
+            }
+
+            if (this.state === 'SELECT_ITEM') {
+                if (e.key === 'Escape' || e.key === ' ') {
+                    this.state = 'PLAY'; this.log("Aborted.", COLORS.ui); this.draw();
+                } else if (e.key.length === 1 && e.key >= 'a' && e.key <= 'z') {
+                    let idx = e.key.charCodeAt(0) - 97; 
+                    if (this.selectAction === 'TAKEOFF') {
+                        if (e.key === 'a' && this.player.equip.weapon) this.takeOff('weapon');
+                        else if (e.key === 'b' && this.player.equip.armor) this.takeOff('armor');
+                        else this.draw(); 
+                    } else {
+                        if (idx >= 0 && idx < this.player.inventory.length) {
+                            if (this.selectAction === 'ZAP' || this.selectAction === 'READ') {
+                                this.selectedItemIdx = idx;
+                                if (this.selectAction === 'ZAP') this.promptDirection('ZAP_DIR', "Zap in which direction?");
+                                else this.executeItemAction(idx, 'READ');
+                            } else {
+                                this.executeItemAction(idx, this.selectAction);
+                            }
+                        } else this.draw();
+                    }
+                }
+                e.preventDefault(); return;
+            }
+
+            if (this.state === 'TARGET_DIR') {
+                if (e.key === 'Escape' || e.key === ' ') {
+                    this.state = 'PLAY'; this.log("Aborted.", COLORS.ui); this.draw();
+                } else {
+                    let dir = this.getDirectionFromKey(e.key);
+                    if (dir) this.executeDirectionAction(dir.dx, dir.dy);
+                }
+                e.preventDefault(); return;
+            }
+
+            let dx = 0, dy = 0, acted = false;
+            let dir = this.getDirectionFromKey(e.key);
+            if (dir) { dx = dir.dx; dy = dir.dy; }
+
+            if (dx === 0 && dy === 0) {
+                switch(e.key) {
+                    case 'i': this.state = 'INVENTORY'; this.draw(); e.preventDefault(); return;
+                    case 'e': this.state = 'EQUIPMENT'; this.draw(); e.preventDefault(); return;
+                    case 'w': this.promptSelectItem('WEAR', 'Wear/Wield which item?'); e.preventDefault(); return;
+                    case 't': this.promptSelectItem('TAKEOFF', 'Take off which item?'); e.preventDefault(); return;
+                    case 'd': this.promptSelectItem('DROP', 'Drop which item?'); e.preventDefault(); return;
+                    case 'E': this.promptSelectItem('EAT', 'Eat which item?'); e.preventDefault(); return;
+                    case 'q': this.promptSelectItem('QUAFF', 'Quaff which potion?'); e.preventDefault(); return;
+                    case 'z': this.promptSelectItem('ZAP', 'Zap which wand?'); e.preventDefault(); return;
+                    case 'r': this.promptSelectItem('READ', 'Read which scroll?'); e.preventDefault(); return;
+                    
+                    case 's': this.searchSurroundings(); acted = true; break;
+                    case 'T': this.promptDirection('TUNNEL', 'Tunnel in which direction?'); e.preventDefault(); return;
+                    case 'D': this.promptDirection('DISARM', 'Disarm in which direction?'); e.preventDefault(); return;
+                    case 'c': this.promptDirection('CLOSE', 'Close door in which direction?'); e.preventDefault(); return;
+                    case 'x': this.promptDirection('EXAMINE', 'Examine in which direction?'); e.preventDefault(); return;
+
+                    case '5': case '.': acted = true; this.log("You rest.", COLORS.ui); break;
+                    case '<': 
+                        if (this.map[this.player.y][this.player.x].char === '<') {
+                            if (this.depth > 0) { this.depth--; this.generateLevel(true); acted = true; }
+                        } else this.log("There is no up staircase here.", COLORS.warn);
+                        break;
+                    case '>': 
+                        if (this.map[this.player.y][this.player.x].char === '>') {
+                            this.depth++; this.generateLevel(); acted = true; 
+                        } else this.log("There is no down staircase here.", COLORS.warn);
+                        break;
+                }
+            }
+
+            if (dx !== 0 || dy !== 0) { this.movePlayer(dx, dy); acted = true; }
+            if (acted) this.advanceTurn();
+            e.preventDefault();
+        });
+    }
+
+    getDirectionFromKey(key) {
+        switch(key) {
+            case 'ArrowUp': case '8': case 'k': return {dx: 0, dy: -1};
+            case 'ArrowDown': case '2': case 'j': return {dx: 0, dy: 1};
+            case 'ArrowLeft': case '4': case 'h': return {dx: -1, dy: 0};
+            case 'ArrowRight': case '6': case 'l': return {dx: 1, dy: 0};
+            case '7': case 'y': return {dx: -1, dy: -1};
+            case '9': case 'u': return {dx: 1, dy: -1};
+            case '1': case 'b': return {dx: -1, dy: 1};
+            case '3': case 'n': return {dx: 1, dy: 1};
+        }
+        return null;
+    }
+
+    advanceTurn() {
+        this.turn++;
+        this.updateHunger();
+        this.updateMonsters();
+        this.updateFOV();
+        this.checkLevelUp();
+        if (this.turn % 15 === 0 && this.player.hp < this.player.maxHp && this.player.food > 0) this.player.hp++;
+        this.draw();
+    }
+
+    // --- ACTIONS ---
+    searchSurroundings() {
+        this.log("You search your surroundings.");
+        let found = false;
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                let y = this.player.y + dy, x = this.player.x + dx;
+                if (x>=0 && y>=0 && x<MAP_COLS && y<MAP_ROWS) {
+                    let cell = this.map[y][x];
+                    if (cell.isSecretDoor) {
+                        cell.isSecretDoor = false;
+                        cell.char = '+';
+                        this.log("You found a secret door!", COLORS.warn);
+                        found = true;
+                    }
+                    if (cell.isTrap && cell.trapHidden) {
+                        cell.trapHidden = false;
+                        this.log("You found a trap!", COLORS.warn);
+                        found = true;
+                    }
+                }
+            }
+        }
+        if(!found) this.log("You found nothing.", COLORS.ui);
+    }
+
+    promptDirection(action, msg) {
+        this.targetAction = action;
+        this.targetMsg = msg;
+        this.state = 'TARGET_DIR';
+        this.draw();
+    }
+
+    triggerTrap(tx, ty) {
+        let dmg = RNG.roll(1, 6) + Math.floor(this.depth / 2);
+        this.player.hp -= dmg;
+        this.log(`A trap strikes you for ${dmg} damage!`, COLORS.trap);
+        if (this.player.hp <= 0) {
+            this.state = 'DEAD';
+            this.player.hp = 0;
+            this.log("You die.", '#f00');
+        }
+    }
+
+    executeDirectionAction(dx, dy) {
+        let tx = this.player.x + dx;
+        let ty = this.player.y + dy;
+        this.state = 'PLAY';
+
+        if (tx < 0 || ty < 0 || tx >= MAP_COLS || ty >= MAP_ROWS) {
+            this.log("Invalid target.", COLORS.warn);
+            this.draw(); return;
+        }
+
+        let cell = this.map[ty][tx];
+        let mIdx = this.monsters.findIndex(m => m.x === tx && m.y === ty);
+        let iIdx = this.items.findIndex(i => i.x === tx && i.y === ty);
+
+        if (this.targetAction === 'EXAMINE') {
+            if (mIdx !== -1) {
+                this.log(`You see a ${this.monsters[mIdx].name}.`);
+            } else if (iIdx !== -1) {
+                this.log(`You see a ${this.items[iIdx].name}.`);
+            } else {
+                if (cell.char === '+') this.log("You see a closed door.");
+                else if (cell.char === "'") this.log("You see an open door.");
+                else if (cell.char === '<' || cell.char === '>') this.log("You see a staircase.");
+                else if (cell.isTrap && !cell.trapHidden) this.log("You see a trap.");
+                else if (cell.char === '%') this.log("You see a mineral vein.");
+                else if (cell.char === ':') this.log("You see some rubble.");
+                else if (cell.char === '#') this.log("You see a rock wall.");
+                else if (cell.char === '.') this.log("You see an empty floor.");
+                else this.log("You see nothing of interest.");
+            }
+            this.draw(); // No turn advance for looking
+            return;
+        }
+
+        if (this.targetAction === 'DISARM') {
+            if (cell.isTrap) {
+                let chance = 30 + (this.player.stats.DEX - 10) * 5;
+                if (RNG.chance(chance)) {
+                    this.log("You successfully disarmed the trap.", COLORS.player);
+                    cell.isTrap = false;
+                    cell.char = '.';
+                    this.player.exp += 5; 
+                } else {
+                    this.log("You failed to disarm the trap and triggered it!", COLORS.warn);
+                    cell.trapHidden = false;
+                    this.triggerTrap(tx, ty);
+                }
+            } else if (cell.char === '+') {
+                this.log("You can't disarm a door (try opening it).");
+            } else {
+                this.log("There is nothing to disarm there.");
+            }
+            this.advanceTurn();
+            return;
+        }
+
+        if (this.targetAction === 'CLOSE') {
+            if (cell.char === "'") {
+                if (mIdx !== -1) {
+                    this.log("A monster is in the way!");
+                } else {
+                    cell.char = '+';
+                    cell.solid = true;
+                    cell.opaque = true;
+                    this.log("You close the door.");
+                }
+            } else {
+                this.log("There is no open door there.");
+            }
+            this.advanceTurn();
+            return;
+        }
+
+        if (this.targetAction === 'TUNNEL') {
+            if (cell.char === ':' || cell.char === '%') {
+                this.log("You clear the rubble.");
+                if (cell.char === '%' && RNG.chance(30)) {
+                    this.items.push({ x: tx, y: ty, type: 'gold', char: '$', color: COLORS.gold, name: 'Gold', val: RNG.roll(this.depth, 15) + 10 });
+                    this.log("You found some hidden gold!", COLORS.gold);
+                }
+                cell.char = '.'; cell.solid = false; cell.opaque = false;
+            } else if (cell.char === '#' && !cell.isSecretDoor) {
+                if (RNG.chance(10)) {
+                    this.log("You tunnel through the hard rock.");
+                    cell.char = '.'; cell.solid = false; cell.opaque = false;
+                } else {
+                    this.log("You strike the rock, but it holds firm.");
+                }
+            } else if (cell.isSecretDoor) {
+                this.log("You bash the rock, revealing a door!");
+                cell.isSecretDoor = false; cell.char = '+';
+            } else {
+                this.log("You tunnel at empty air.");
+            }
+            this.advanceTurn();
+            return;
+        } 
+
+        if (this.targetAction === 'ZAP_DIR') {
+            let item = this.player.inventory[this.selectedItemIdx];
+            if (!item || item.type !== 'wand') return;
+            
+            this.log(`You zap the ${item.name}...`, COLORS.wand);
+            item.charges--;
+            if (item.charges <= 0) {
+                this.log(`The ${item.name} crumbles to dust!`);
+                this.player.inventory.splice(this.selectedItemIdx, 1);
+            }
+
+            let cx = this.player.x, cy = this.player.y;
+            for (let r=0; r < FOV_RADIUS; r++) {
+                cx += dx; cy += dy;
+                if (this.map[cy][cx].solid && !this.map[cy][cx].isSecretDoor) {
+                    this.log("The bolt fizzles against the wall.");
+                    break;
+                }
+                let mId = this.monsters.findIndex(m => m.x === cx && m.y === cy);
+                if (mId !== -1) {
+                    let m = this.monsters[mId];
+                    m.currentHp -= item.dmg;
+                    this.log(`The bolt hits the ${m.name} for ${item.dmg}!`, COLORS.wand);
+                    if (m.currentHp <= 0) {
+                        this.log(`You have slain the ${m.name}!`);
+                        this.player.exp += m.exp;
+                        this.monsters.splice(mId, 1);
+                    }
+                    break;
+                }
+            }
+            this.advanceTurn();
+            return;
+        }
+    }
+
+    promptSelectItem(action, msg) {
+        if (this.player.inventory.length === 0 && action !== 'TAKEOFF') {
+            this.log("You are not carrying anything.", COLORS.warn); this.draw(); return;
+        }
+        if (action === 'TAKEOFF' && !this.player.equip.weapon && !this.player.equip.armor) {
+            this.log("You are not wearing anything.", COLORS.warn); this.draw(); return;
+        }
+        this.selectAction = action; this.selectMsg = msg; this.state = 'SELECT_ITEM'; this.draw();
+    }
+
+    executeItemAction(idx, action) {
+        let item = this.player.inventory[idx];
+        if (!item) return;
+        let acted = false;
+
+        if (action === 'WEAR') {
+            if (item.type === 'weapon' || item.type === 'armor') {
+                let isWpn = item.type === 'weapon';
+                let old = isWpn ? this.player.equip.weapon : this.player.equip.armor;
+                if (isWpn) this.player.equip.weapon = item; else this.player.equip.armor = item;
+                this.player.inventory.splice(idx, 1);
+                if (old) this.player.inventory.push(old);
+                this.log(`You ${isWpn ? 'wield' : 'wear'} the ${item.name}.`, COLORS[item.type]);
+                acted = true;
+            } else this.log("You cannot wear/wield that.", COLORS.warn);
+        } else if (action === 'DROP') {
+            item.x = this.player.x; item.y = this.player.y;
+            this.items.push(item); this.player.inventory.splice(idx, 1);
+            this.log(`You drop the ${item.name}.`); acted = true;
+        } else if (action === 'EAT') {
+            if (item.type === 'food') {
+                this.player.food = Math.min(this.player.maxFood, this.player.food + item.val);
+                this.log(`You eat the ${item.name}.`); this.player.inventory.splice(idx, 1); acted = true;
+            } else this.log("You can't eat that!", COLORS.warn);
+        } else if (action === 'QUAFF') {
+            if (item.type === 'potion') {
+                this.player.hp = Math.min(this.player.maxHp, this.player.hp + item.val);
+                this.log(`You quaff the ${item.name}.`); this.player.inventory.splice(idx, 1); acted = true;
+            } else this.log("You can't quaff that!", COLORS.warn);
+        } else if (action === 'READ') {
+            if (item.type === 'scroll') {
+                this.log(`You read the ${item.name}.`, COLORS.scroll);
+                if (item.effect === 'phase') {
+                    this.player.x = RNG.rand(1, MAP_COLS-2); this.player.y = RNG.rand(1, MAP_ROWS-2);
+                    this.log("You blink out and reappear elsewhere!");
+                } else if (item.effect === 'light') {
+                    this.log("A bright light surrounds you."); 
+                }
+                this.player.inventory.splice(idx, 1); acted = true;
+            } else this.log("You can't read that!", COLORS.warn);
+        } else if (action === 'ZAP') {
+            if (item.type === 'wand') {
+                // Handled in executeDirectionAction
+            } else {
+                this.log("You can't zap that!", COLORS.warn);
+            }
+        }
+
+        this.state = 'PLAY';
+        if (acted) this.advanceTurn();
+        else this.draw();
+    }
+
+    takeOff(slot) {
+        let item = this.player.equip[slot];
+        if (!item) return;
+        if (this.player.inventory.length >= 22) {
+            this.log("Your backpack is full!", COLORS.warn); this.state = 'PLAY'; this.draw(); return;
+        }
+        this.player.inventory.push(item); this.player.equip[slot] = null;
+        this.log(`You take off the ${item.name}.`);
+        this.state = 'PLAY'; this.advanceTurn();
+    }
+
+    // --- SHOP & HAGGLING LOGIC ---
+    enterShop(shopIdx) {
+        this.state = 'SHOP'; this.currentShopIdx = shopIdx; this.shopSubState = 'MAIN';
+        this.shopKeeperMsg = `Welcome to the ${SHOP_DATA[shopIdx].name}!`; this.draw();
+    }
+
+    handleShopInput(key) {
+        let shopInfo = SHOP_DATA[this.currentShopIdx], shopInv = this.shops[this.currentShopIdx];
+        if (this.shopSubState === 'MAIN') {
+            if (key.toLowerCase() === 'b') {
+                if (shopInv.length === 0) this.shopKeeperMsg = "I am out of stock!";
+                else { this.shopSubState = 'BUY_SELECT'; this.shopKeeperMsg = "Buy which item? (a-z or ESC)"; }
+            } else if (key.toLowerCase() === 's') {
+                if (this.player.inventory.length === 0) this.shopKeeperMsg = "You have nothing to sell!";
+                else { this.shopSubState = 'SELL_SELECT'; this.shopKeeperMsg = "Sell which item? (a-v or ESC)"; }
+            } else if (key === 'Escape' || key.toLowerCase() === 'l') {
+                this.state = 'PLAY'; this.log(`You leave the ${shopInfo.name}.`);
+            }
+        } else if (this.shopSubState === 'BUY_SELECT' || this.shopSubState === 'SELL_SELECT') {
+            if (key === 'Escape') { this.shopSubState = 'MAIN'; this.shopKeeperMsg = "Can I help you with anything else?"; this.draw(); return; }
+            if (key >= 'a' && key <= 'z') {
+                let idx = key.charCodeAt(0) - 97;
+                let targetInv = this.shopSubState === 'BUY_SELECT' ? shopInv : this.player.inventory;
+                if (idx >= 0 && idx < targetInv.length) {
+                    this.haggleItem = targetInv[idx]; this.haggleItemIdx = idx;
+                    this.haggleInput = "";
+                    if (this.shopSubState === 'BUY_SELECT') {
+                        this.shopAsk = Math.floor(this.haggleItem.val * (1.2 + Math.random()));
+                        this.shopSubState = 'HAGGLE_BUY';
+                        this.shopKeeperMsg = `For the ${this.haggleItem.name}, I want ${this.shopAsk} gold. Offer?`;
+                    } else {
+                        this.shopOffer = Math.floor(Math.max(1, this.haggleItem.val * (0.5 + Math.random() * 0.3)));
+                        this.shopSubState = 'HAGGLE_SELL';
+                        this.shopKeeperMsg = `I offer ${this.shopOffer} gold for the ${this.haggleItem.name}. Ask?`;
+                    }
+                }
+            }
+        } else if (this.shopSubState === 'HAGGLE_BUY' || this.shopSubState === 'HAGGLE_SELL') {
+            if (key === 'Escape') { this.shopSubState = 'MAIN'; this.shopKeeperMsg = "Changed your mind? Fine."; }
+            else if (key >= '0' && key <= '9') { if (this.haggleInput.length < 6) this.haggleInput += key; }
+            else if (key === 'Backspace') this.haggleInput = this.haggleInput.slice(0, -1);
+            else if (key === 'Enter' && this.haggleInput.length > 0) {
+                let amt = parseInt(this.haggleInput); this.haggleInput = "";
+                if (this.shopSubState === 'HAGGLE_BUY') {
+                    if (amt >= this.shopAsk) {
+                        if (this.player.gold >= amt) {
+                            if (this.player.inventory.length < 22) {
+                                this.player.gold -= amt; this.player.inventory.push(this.haggleItem);
+                                shopInv.splice(this.haggleItemIdx, 1);
+                                this.shopSubState = 'MAIN'; this.shopKeeperMsg = HAGGLE_ACCEPTS[RNG.rand(0, HAGGLE_ACCEPTS.length-1)];
+                            } else { this.shopSubState = 'MAIN'; this.shopKeeperMsg = "Your backpack is full!"; }
+                        } else this.shopKeeperMsg = "You don't have that much gold, beggar!";
+                    } else if (amt < this.haggleItem.val * 0.6) this.shopKeeperMsg = HAGGLE_INSULTS[RNG.rand(0, HAGGLE_INSULTS.length-1)] + ` I want ${this.shopAsk}.`;
+                    else {
+                        let drop = Math.max(1, Math.floor((this.shopAsk - amt) / 3));
+                        this.shopAsk -= drop; this.shopKeeperMsg = `No. I must have ${this.shopAsk} gold. Offer?`;
+                    }
+                } else {
+                    if (amt <= this.shopOffer) {
+                        this.player.gold += amt; shopInv.push(this.haggleItem); this.player.inventory.splice(this.haggleItemIdx, 1);
+                        this.shopSubState = 'MAIN'; this.shopKeeperMsg = HAGGLE_ACCEPTS[RNG.rand(0, HAGGLE_ACCEPTS.length-1)];
+                    } else if (amt > this.haggleItem.val * 1.8) this.shopKeeperMsg = HAGGLE_INSULTS[RNG.rand(0, HAGGLE_INSULTS.length-1)] + ` I offer ${this.shopOffer}.`;
+                    else {
+                        let raise = Math.max(1, Math.floor((amt - this.shopOffer) / 3));
+                        this.shopOffer += raise; this.shopKeeperMsg = `Too much. I will give you ${this.shopOffer}. Ask?`;
+                    }
+                }
+            }
+        }
+        this.draw();
+    }
+
+    updateHunger() {
+        if (this.depth === 0) return; 
+        this.player.food--;
+        if (this.player.food === 200) this.log("You are getting hungry.", COLORS.warn);
+        if (this.player.food === 50) this.log("You are starving!", COLORS.warn);
+        if (this.player.food <= 0) {
+            this.player.food = 0;
+            if (this.turn % 3 === 0) {
+                this.player.hp--;
+                this.log("You take damage from starvation!", '#ff0000');
+                if (this.player.hp <= 0) {
+                    this.state = 'DEAD';
+                    this.log("You have starved to death.", '#ff0000');
+                }
+            }
+        }
+    }
+
+    // --- MAP GENERATION ---
+    generateLevel(goingUp = false) {
+        this.monsters = []; this.items = [];
+        if (this.depth === 0) this.generateTown(); else this.generateDungeon(goingUp);
+        this.updateFOV();
+        if (this.depth === 0) this.log("You enter the Town.", COLORS.ui);
+        else this.log(`You enter Level ${this.depth}.`, COLORS.ui);
+    }
+
+    generateTown() {
+        this.map = Array(MAP_ROWS).fill(0).map(() => Array(MAP_COLS).fill(0).map(() => ({
+            char: '.', explored: true, visible: true, solid: false, opaque: false
+        })));
+        for(let x=0; x<MAP_COLS; x++) { this.map[0][x].char='#'; this.map[0][x].solid=true; this.map[MAP_ROWS-1][x].char='#'; this.map[MAP_ROWS-1][x].solid=true; }
+        for(let y=0; y<MAP_ROWS; y++) { this.map[y][0].char='#'; this.map[y][0].solid=true; this.map[y][MAP_COLS-1].char='#'; this.map[y][MAP_COLS-1].solid=true; }
+        const shops = ['1','2','3','4','5','6'];
+        for (let i=0; i<shops.length; i++) {
+            let sx = 20 + (i % 3) * 20, sy = 15 + Math.floor(i / 3) * 15;
+            for(let dy=-2; dy<=2; dy++) for(let dx=-3; dx<=3; dx++) if (Math.abs(dy)===2 || Math.abs(dx)===3) this.map[sy+dy][sx+dx] = { char:'#', explored:true, visible:true, solid:true, opaque:true };
+            this.map[sy+2][sx] = { char:'.', explored:true, visible:true, solid:false, opaque:false }; 
+            this.map[sy][sx] = { char:shops[i], explored:true, visible:true, solid:true, opaque:false, isShop: true };
+        }
+        this.map[MAP_ROWS-5][MAP_COLS/2] = { char: '>', explored:true, visible:true, solid:false, opaque:false };
+        this.player.x = MAP_COLS/2; this.player.y = MAP_ROWS-6;
+    }
+
+    generateDungeon(goingUp) {
+        this.map = Array(MAP_ROWS).fill(0).map(() => Array(MAP_COLS).fill(0).map(() => ({
+            char: '#', explored: false, visible: false, solid: true, opaque: true
+        }))); 
+        const rooms = []; const numRooms = RNG.rand(15, 25);
+        for (let i = 0; i < numRooms; i++) {
+            let w = RNG.rand(5, 12), h = RNG.rand(4, 10);
+            let x = RNG.rand(1, MAP_COLS - w - 2), y = RNG.rand(1, MAP_ROWS - h - 2);
+            let newRoom = {x, y, w, h, cx: Math.floor(x + w/2), cy: Math.floor(y + h/2)};
+            if (!rooms.some(r => x <= r.x + r.w + 1 && x + w + 1 >= r.x && y <= r.y + r.h + 1 && y + h + 1 >= r.y)) {
+                rooms.push(newRoom);
+                for (let ry = y; ry < y + h; ry++) for (let rx = x; rx < x + w; rx++) this.map[ry][rx] = { char: '.', explored: false, visible: false, solid: false, opaque: false };
+            }
+        }
+        for (let i = 1; i < rooms.length; i++) {
+            let r1 = rooms[i - 1], r2 = rooms[i];
+            if (RNG.chance(50)) {
+                for (let x = Math.min(r1.cx, r2.cx); x <= Math.max(r1.cx, r2.cx); x++) this.map[r1.cy][x] = { char: '.', explored: false, visible: false, solid: false, opaque: false };
+                for (let y = Math.min(r1.cy, r2.cy); y <= Math.max(r1.cy, r2.cy); y++) this.map[y][r2.cx] = { char: '.', explored: false, visible: false, solid: false, opaque: false };
+            } else {
+                for (let y = Math.min(r1.cy, r2.cy); y <= Math.max(r1.cy, r2.cy); y++) this.map[y][r1.cx] = { char: '.', explored: false, visible: false, solid: false, opaque: false };
+                for (let x = Math.min(r1.cx, r2.cx); x <= Math.max(r1.cx, r2.cx); x++) this.map[r2.cy][x] = { char: '.', explored: false, visible: false, solid: false, opaque: false };
+            }
+        }
+        // Veins, Doors, Traps
+        for (let y = 1; y < MAP_ROWS - 1; y++) {
+            for (let x = 1; x < MAP_COLS - 1; x++) {
+                if (this.map[y][x].char === '.') {
+                    let N = this.map[y-1][x].solid, S = this.map[y+1][x].solid, E = this.map[y][x+1].solid, W = this.map[y][x-1].solid;
+                    if (((N && S && !E && !W) || (!N && !S && E && W)) && RNG.chance(20)) {
+                        this.map[y][x] = { char: '+', explored: false, visible: false, solid: true, opaque: true };
+                        if (RNG.chance(30)) { this.map[y][x].char = '#'; this.map[y][x].isSecretDoor = true; } // Secret door
+                    } else if (RNG.chance(2)) { // Traps
+                        this.map[y][x].isTrap = true; this.map[y][x].trapHidden = true;
+                    }
+                } else if (this.map[y][x].char === '#') {
+                    if (RNG.chance(5)) this.map[y][x].char = '%'; // Mineral vein
+                }
+            }
+        }
+        for (let r of rooms) if (RNG.chance(40)) this.map[RNG.rand(r.y, r.y + r.h - 1)][RNG.rand(r.x, r.x + r.w - 1)].char = ':'; // Rubble
+        
+        let startRoom = rooms[0], endRoom = rooms[rooms.length - 1];
+        this.map[startRoom.cy][startRoom.cx].char = '<'; 
+        if (this.depth < MAX_DEPTH) this.map[endRoom.cy][endRoom.cx].char = '>';
+        this.player.x = goingUp ? endRoom.cx : startRoom.cx; this.player.y = goingUp ? endRoom.cy : startRoom.cy;
+
+        let numItems = RNG.rand(4, 10 + Math.floor(this.depth / 2));
+        for (let i = 0; i < numItems; i++) {
+            let rx, ry; do { rx = RNG.rand(1, MAP_COLS - 2); ry = RNG.rand(1, MAP_ROWS - 2); } while (this.map[ry][rx].solid || (rx === this.player.x && ry === this.player.y));
+            if (RNG.chance(40)) this.items.push({ x: rx, y: ry, type: 'gold', char: '$', color: COLORS.gold, name: 'Gold', val: RNG.roll(this.depth, 10) + 5 });
+            else { let loot = RNG.pickWeight(LOOT_TABLE); loot.x = rx; loot.y = ry; this.items.push(loot); }
+        }
+
+        let numMonsters = RNG.rand(5 + this.depth, 12 + this.depth);
+        if (this.depth === MAX_DEPTH && !goingUp) {
+            this.monsters.push({ ...MONSTER_TYPES[MONSTER_TYPES.length - 1], x: endRoom.cx + 1, y: endRoom.cy, currentHp: 600 });
+            this.log("You feel a terrifying heat radiating from the depths...", '#ff5500');
+        }
+        let avail = MONSTER_TYPES.filter(m => m.minDepth <= this.depth && !m.isBoss);
+        for (let i = 0; i < numMonsters; i++) {
+            let mt = avail[RNG.rand(0, avail.length - 1)], mx, my;
+            do { mx = RNG.rand(1, MAP_COLS - 2); my = RNG.rand(1, MAP_ROWS - 2); } while (this.map[my][mx].solid || (mx === this.player.x && my === this.player.y));
+            this.monsters.push({ ...mt, x: mx, y: my, currentHp: mt.hp + RNG.roll(this.depth, 2) });
+        }
+    }
+
+    updateFOV() {
+        if (this.depth === 0) return; 
+        for (let y = 0; y < MAP_ROWS; y++) for (let x = 0; x < MAP_COLS; x++) this.map[y][x].visible = false;
+        for (let angle = 0; angle < 360; angle += 1.5) {
+            let dx = Math.cos(angle * Math.PI / 180), dy = Math.sin(angle * Math.PI / 180);
+            let cx = this.player.x + 0.5, cy = this.player.y + 0.5;
+            for (let r = 0; r < FOV_RADIUS; r++) {
+                let mx = Math.floor(cx), my = Math.floor(cy);
+                if (mx < 0 || my < 0 || mx >= MAP_COLS || my >= MAP_ROWS) break;
+                this.map[my][mx].visible = true; this.map[my][mx].explored = true;
+                if (this.map[my][mx].opaque) break;
+                cx += dx; cy += dy;
+            }
+        }
+    }
+
+    movePlayer(dx, dy) {
+        let nx = this.player.x + dx, ny = this.player.y + dy;
+        if (nx < 0 || ny < 0 || nx >= MAP_COLS || ny >= MAP_ROWS) return;
+
+        let targetCell = this.map[ny][nx];
+        if (targetCell.isShop) { this.enterShop(parseInt(targetCell.char) - 1); return; }
+        if (targetCell.char === '+' && !targetCell.isSecretDoor) {
+            targetCell.char = "'"; targetCell.solid = false; targetCell.opaque = false; this.log("You open the door."); return; 
+        }
+        if (targetCell.char === ':' || targetCell.char === '%' || targetCell.char === '#' || targetCell.isSecretDoor) {
+            this.log("You bump into a wall.", COLORS.ui); return;
+        }
+
+        let mIdx = this.monsters.findIndex(m => m.x === nx && m.y === ny);
+        if (mIdx !== -1) { this.attackMonster(mIdx); return; }
+
+        if (!targetCell.solid) {
+            this.player.x = nx; this.player.y = ny;
+            if (targetCell.isTrap) {
+                if (targetCell.trapHidden) { targetCell.trapHidden = false; this.log("You found a trap!", COLORS.trap); }
+                if (RNG.chance(50)) {
+                    this.triggerTrap(nx, ny);
+                } else this.log("You safely pass a trap.");
+            }
+            
+            let iIdx = this.items.findIndex(i => i.x === nx && i.y === ny);
+            if (iIdx !== -1) {
+                let item = this.items[iIdx];
+                if (item.type === 'gold') {
+                    this.player.gold += item.val; this.log(`You found ${item.val} gold pieces.`, COLORS.gold); this.items.splice(iIdx, 1);
+                } else if (this.player.inventory.length < 22) {
+                    this.player.inventory.push(item); this.log(`You picked up a ${item.name}.`, item.color); this.items.splice(iIdx, 1);
+                } else this.log(`Your backpack is full! You step over the ${item.name}.`, COLORS.warn);
+            }
+        }
+    }
+
+    attackMonster(index) {
+        let m = this.monsters[index];
+        let hitChance = 50 + (this.player.stats.DEX - 10) * 2;
+        
+        if (RNG.chance(hitChance)) {
+            let wpnAtk = this.player.equip.weapon ? this.player.equip.weapon.atk : 0;
+            let dmg = Math.max(1, RNG.roll(1, 6) + Math.floor((this.player.stats.STR - 10) / 2) + wpnAtk);
+            m.currentHp -= dmg;
+            this.log(`You hit the ${m.name} for ${dmg}.`);
+            
+            if (m.currentHp <= 0) {
+                this.log(`You have slain the ${m.name}!`);
+                this.player.exp += m.exp;
+                this.monsters.splice(index, 1);
+                
+                if (m.isBoss) {
+                    this.state = 'WIN';
+                    this.log("*** CONGRATULATIONS *** You have defeated the Balrog!", '#00ff00');
+                    this.log("Press Enter to play again.", '#00ff00');
+                }
+            }
+        } else {
+            this.log(`You miss the ${m.name}.`);
+        }
+    }
+
+    updateMonsters() {
+        for (let m of this.monsters) {
+            let dist = Math.abs(m.x - this.player.x) + Math.abs(m.y - this.player.y);
+            
+            if (dist === 1) {
+                let hitChance = 40 + (this.depth * 2);
+                if (RNG.chance(hitChance)) {
+                    let totalAC = this.player.ac + (this.player.equip.armor ? this.player.equip.armor.ac : 0);
+                    let dmg = Math.max(1, m.atk - Math.floor(totalAC / 3));
+                    this.player.hp -= dmg;
+                    this.log(`The ${m.name} hits you for ${dmg}.`, COLORS.monster);
+                    
+                    if (this.player.hp <= 0) {
+                        this.state = 'DEAD';
+                        this.player.hp = 0;
+                        this.log("You die.", '#ff0000');
+                        this.log("Press Enter to restart.", '#ff0000');
+                    }
+                } else {
+                    this.log(`The ${m.name} misses you.`);
+                }
+            } else if (dist < FOV_RADIUS && (this.map[m.y][m.x].visible || this.depth === 0)) {
+                let dx = Math.sign(this.player.x - m.x);
+                let dy = Math.sign(this.player.y - m.y);
+                
+                if (!this.map[m.y + dy][m.x + dx].solid && !this.monsters.some(other => other.x === m.x + dx && other.y === m.y + dy)) {
+                    m.x += dx; m.y += dy;
+                } else if (!this.map[m.y][m.x + dx].solid && !this.monsters.some(other => other.x === m.x + dx && other.y === m.y)) {
+                    m.x += dx;
+                } else if (!this.map[m.y + dy][m.x].solid && !this.monsters.some(other => other.x === m.x && other.y === m.y + dy)) {
+                    m.y += dy;
+                }
+            }
+        }
+    }
+
+    checkLevelUp() {
+        if (this.player.exp >= this.player.nextExp) {
+            this.player.level++;
+            this.player.nextExp = Math.floor(this.player.nextExp * 1.5);
+            this.player.maxHp += RNG.roll(1, 10) + Math.floor((this.player.stats.CON - 10)/2);
+            this.player.hp = this.player.maxHp;
+            this.player.stats.STR += RNG.chance(40) ? 1 : 0;
+            this.player.stats.DEX += RNG.chance(40) ? 1 : 0;
+            this.player.ac += 1;
+            this.log(`Welcome to level ${this.player.level}!`, '#ffff00');
+        }
+    }
+
+    // --- RENDERING ---
+    draw() {
+        this.ctx.fillStyle = COLORS.bg; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        if (this.state === 'START' || this.state === 'CHAR_RACE' || this.state === 'CHAR_CLASS') { this.drawCharCreation(); return; }
+        if (this.state === 'SHOP') { this.drawShop(); return; }
+
+        let camX = Math.max(0, Math.min(MAP_COLS - VIEW_COLS, this.player.x - Math.floor(VIEW_COLS / 2)));
+        let camY = Math.max(0, Math.min(MAP_ROWS - VIEW_ROWS, this.player.y - Math.floor(VIEW_ROWS / 2)));
+
+        for (let vy = 0; vy < VIEW_ROWS; vy++) {
+            for (let vx = 0; vx < VIEW_COLS; vx++) {
+                let mx = camX + vx, my = camY + vy, cell = this.map[my][mx];
+                if (!cell.explored && this.depth > 0) continue;
+                let char = cell.char, color = COLORS.floorHidden;
+                
+                if (cell.isTrap && !cell.trapHidden) { char = '^'; color = COLORS.trap; }
+                else if (cell.isSecretDoor && !cell.visible) { char = '#'; color = COLORS.wallHidden; } // secret
+                else if (char === '#' || char === '%') color = cell.visible || this.depth===0 ? (char==='%'?COLORS.vein:COLORS.wall) : COLORS.wallHidden;
+                else if (char === '+' || char === "'") color = cell.visible || this.depth===0 ? COLORS.door : COLORS.doorHidden;
+                else if (char === '<' || char === '>') color = cell.visible || this.depth===0 ? COLORS.stair : COLORS.floorHidden;
+                else if (char === ':') color = cell.visible || this.depth===0 ? COLORS.rubble : COLORS.floorHidden;
+                else if (cell.isShop) color = COLORS.shop;
+                else color = cell.visible || this.depth===0 ? COLORS.floor : COLORS.floorHidden;
+
+                this.drawChar(char, vx, vy + 2, color); 
+            }
+        }
+
+        for (let i of this.items) if (i.x >= camX && i.x < camX + VIEW_COLS && i.y >= camY && i.y < camY + VIEW_ROWS && (this.map[i.y][i.x].visible || this.depth===0)) this.drawChar(i.char, i.x - camX, i.y - camY + 2, i.color);
+        for (let m of this.monsters) if (m.x >= camX && m.x < camX + VIEW_COLS && m.y >= camY && m.y < camY + VIEW_ROWS && (this.map[m.y][m.x].visible || this.depth===0)) this.drawChar(m.char, m.x - camX, m.y - camY + 2, m.color);
+
+        let px = this.player.x - camX, py = this.player.y - camY;
+        if(px >= 0 && px < VIEW_COLS && py >= 0 && py < VIEW_ROWS) this.drawChar(this.state !== 'DEAD' ? '@' : '+', px, py + 2, this.state !== 'DEAD' ? COLORS.player : '#f00');
+
+        this.drawUI();
+
+        if (this.state === 'INVENTORY' || (this.state === 'SELECT_ITEM' && this.selectAction !== 'TAKEOFF')) this.drawOverlay("--- INVENTORY ---", this.player.inventory, false);
+        else if (this.state === 'EQUIPMENT' || (this.state === 'SELECT_ITEM' && this.selectAction === 'TAKEOFF')) this.drawOverlay("--- EQUIPMENT ---", [this.player.equip.weapon, this.player.equip.armor], true);
+    }
+
+    drawCharCreation() {
+        this.drawText("Web Moria - Character Creation", 25, 5, COLORS.player);
+        if (this.state === 'START' || this.state === 'CHAR_RACE') {
+            this.drawText("Select a Race:", 25, 8, COLORS.ui);
+            for(let i=0; i<RACES.length; i++) this.drawText(`${String.fromCharCode(97+i)}) ${RACES[i].name}`, 27, 10+i, COLORS.text);
+        } else if (this.state === 'CHAR_CLASS') {
+            this.drawText(`Race: ${RACES[this.selRace].name}`, 25, 6, COLORS.ui);
+            this.drawText("Select a Class:", 25, 8, COLORS.ui);
+            for(let i=0; i<CLASSES.length; i++) this.drawText(`${String.fromCharCode(97+i)}) ${CLASSES[i].name}`, 27, 10+i, COLORS.text);
+        }
+    }
+
+    drawShop() {
+        this.ctx.fillStyle = COLORS.bg; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        let shopInfo = SHOP_DATA[this.currentShopIdx], shopInv = this.shops[this.currentShopIdx];
+        this.drawText(`--- ${shopInfo.name} ---`, 2, 2, COLORS.shop); this.drawText(`Owner: ${shopInfo.owner}`, 2, 4, COLORS.text); this.drawText(`Your Gold: ${this.player.gold}`, 40, 4, COLORS.gold);
+        this.drawText(`>>> ${this.shopKeeperMsg}`, 2, 6, COLORS.msg);
+        if (this.shopSubState === 'HAGGLE_BUY' || this.shopSubState === 'HAGGLE_SELL') { this.drawText(`> ${this.haggleInput}_`, 2, 8, COLORS.text); this.drawText("(Press Enter to submit, Backspace to edit, ESC to cancel)", 2, 10, COLORS.ui); }
+        if (this.shopSubState === 'MAIN' || this.shopSubState === 'BUY_SELECT') {
+            this.drawText("Items for Sale:", 2, 12, COLORS.ui);
+            for(let i=0; i<shopInv.length; i++) this.drawText(`${String.fromCharCode(97+i)}) ${shopInv[i].name} (~${Math.floor(shopInv[i].val * 1.5)} gp)`, 4, 14+i, shopInv[i].color);
+        }
+        if (this.shopSubState === 'MAIN' || this.shopSubState === 'SELL_SELECT') {
+            this.drawText("Your Inventory:", 40, 12, COLORS.ui);
+            for(let i=0; i<this.player.inventory.length; i++) this.drawText(`${String.fromCharCode(97+i)}) ${this.player.inventory[i].name}`, 42, 14+i, this.player.inventory[i].color);
+        }
+        if (this.shopSubState === 'MAIN') this.drawText("[B]uy  [S]ell  [L]eave", 2, ROWS - 5, COLORS.text);
+    }
+
+    drawOverlay(title, items, isEquip = false) {
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)'; this.ctx.fillRect(0, CELL_SIZE * 2, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
+        this.drawText(title, 2, 3, COLORS.ui);
+        if (items.length === 0 || (isEquip && !items[0] && !items[1])) this.drawText("  (Nothing)", 2, 5, COLORS.text);
+        else {
+            for (let i = 0; i < items.length; i++) {
+                if (isEquip) this.drawText(`${String.fromCharCode(97+i)}) ${i===0?"Wielding":"Wearing "} : ${items[i]?items[i].name:"(Nothing)"}`, 2, 5+i, items[i]?items[i].color:COLORS.wall);
+                else this.drawText(`${String.fromCharCode(97+i)}) ${items[i].name}`, 2, 5+i, items[i].color);
+            }
+        }
+        if (this.state !== 'SELECT_ITEM') this.drawText("(Press ESC or Space to close)", 2, VIEW_ROWS, COLORS.ui);
+    }
+
+    drawChar(char, x, y, color) { this.ctx.fillStyle = color; this.ctx.fillText(char, x * CELL_SIZE, y * CELL_SIZE); }
+    drawText(text, x, y, color = COLORS.text) { this.ctx.fillStyle = color; this.ctx.fillText(text, x * CELL_SIZE, y * CELL_SIZE); }
+
+    drawUI() {
+        this.ctx.fillStyle = '#111111'; this.ctx.fillRect(0, 0, this.canvas.width, CELL_SIZE * 2);
+        if (this.state === 'SELECT_ITEM' || this.state === 'TARGET_DIR') this.drawText(this.state === 'SELECT_ITEM' ? this.selectMsg : this.targetMsg, 0, 0, COLORS.msg);
+        else { let startIdx = Math.max(0, this.messages.length - 2); for(let i=0; i < 2; i++) if (this.messages[startIdx + i]) this.drawText(this.messages[startIdx + i].text, 0, i, this.messages[startIdx+i].color); }
+        
+        this.ctx.fillStyle = '#0a0a0a'; this.ctx.fillRect(VIEW_COLS * CELL_SIZE, 0, UI_COLS * CELL_SIZE, this.canvas.height);
+        const uiX = VIEW_COLS + 1;
+        this.drawText(this.player.name, uiX, 1, COLORS.ui); this.drawText(`${this.player.race} ${this.player.cls}`, uiX, 2, COLORS.ui);
+        this.drawText(`STR: ${this.player.stats.STR}`, uiX, 4, COLORS.text); this.drawText(`DEX: ${this.player.stats.DEX}`, uiX, 5, COLORS.text); this.drawText(`CON: ${this.player.stats.CON}`, uiX, 6, COLORS.text);
+        this.drawText(`LVL: ${this.player.level}`, uiX, 8, COLORS.text); this.drawText(`EXP: ${this.player.exp}`, uiX, 9, COLORS.text); this.drawText(`HP : ${this.player.hp}/${this.player.maxHp}`, uiX, 10, COLORS.player);
+        let totalAC = this.player.ac + (this.player.equip.armor ? this.player.equip.armor.ac : 0);
+        this.drawText(`AC : ${totalAC}`, uiX, 11, COLORS.text); this.drawText(`GLD: ${this.player.gold}`, uiX, 12, COLORS.gold); this.drawText(`FOD: ${this.player.food}`, uiX, 13, this.player.food < 200 ? COLORS.warn : COLORS.food);
+        this.drawText("--- EQUIPMENT ---", uiX, 15, COLORS.ui); this.drawText(`W: ${this.player.equip.weapon ? this.player.equip.weapon.name : 'Bare Hands'}`, uiX, 16, COLORS.weapon); this.drawText(`A: ${this.player.equip.armor ? this.player.equip.armor.name : 'No Armor'}`, uiX, 17, COLORS.armor);
+        this.drawText("--- INVENTORY ---", uiX, 19, COLORS.ui);
+        for(let i=0; i<Math.min(9, this.player.inventory.length); i++) this.drawText(`${String.fromCharCode(97+i)}) ${this.player.inventory[i].name}`, uiX, 20 + i, this.player.inventory[i].color);
+        if (this.player.inventory.length > 9) this.drawText("...", uiX, 29, COLORS.ui);
+        let depthText = this.depth === 0 ? "Town Level" : `Depth: ${this.depth * 50} ft`;
+        this.drawText(depthText, uiX, 31, COLORS.ui);
+        if (this.state === 'DEAD') this.drawText("  * R I P * ", uiX, 33, '#ff0000'); else if (this.state === 'WIN') this.drawText(" * WINNER! * ", uiX, 33, '#00ff00');
+    }
+}
+
+window.onload = () => { window.gameInstance = new Game(); };
+</script>
+</body>
+</html>
