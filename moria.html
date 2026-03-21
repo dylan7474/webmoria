@@ -52,9 +52,10 @@
 <div id="game-container">
     <canvas id="gameCanvas" width="1280" height="720"></canvas>
     <div id="instructions">
-        <kbd>Arrows</kbd>/<kbd>Numpad</kbd>/<kbd>vi-keys</kbd>: Move/Attack. <kbd>.</kbd> or <kbd>5</kbd>: Rest. <kbd>&lt;</kbd> <kbd>&gt;</kbd>: Stairs.<br>
-        <kbd>w</kbd> Wield/Wear, <kbd>t</kbd> Take off, <kbd>d</kbd> Drop, <kbd>m</kbd> Magic/Pray, <kbd>E</kbd> Eat, <kbd>q</kbd> Quaff, <kbd>r</kbd> Read, <kbd>z</kbd> Zap, <kbd>i</kbd> Inv, <kbd>e</kbd> Equip.<br>
-        <kbd>T</kbd> Tunnel, <kbd>s</kbd> Search, <kbd>D</kbd> Disarm Trap, <kbd>c</kbd> Close Door, <kbd>x</kbd> Examine. Bump <kbd>1</kbd>-<kbd>6</kbd> in Town for Shops.
+        <kbd>Arrows</kbd>/<kbd>Numpad</kbd>/<kbd>vi-keys</kbd>: Move/Attack. <kbd>.</kbd> or <kbd>5</kbd>: Wait. <kbd>&lt;</kbd> <kbd>&gt;</kbd>: Stairs.<br>
+        <kbd>w</kbd> Wear/Wield, <kbd>t</kbd> Take off, <kbd>d</kbd> Drop, <kbd>v</kbd> Throw, <kbd>E</kbd> Eat, <kbd>q</kbd> Quaff, <kbd>r</kbd> Read, <kbd>z</kbd> Zap.<br>
+        <kbd>m</kbd> Cast Spell, <kbd>p</kbd> Pray, <kbd>i</kbd> Inventory, <kbd>e</kbd> Equipment, <kbd>C</kbd> Character Sheet, <kbd>R</kbd> Rest.<br>
+        <kbd>T</kbd> Tunnel, <kbd>s</kbd> Search, <kbd>D</kbd> Disarm Trap, <kbd>c</kbd> Close Door, <kbd>o</kbd> Open, <kbd>l</kbd> Look. Bump <kbd>1</kbd>-<kbd>6</kbd> in Town for Shops.
         <br><kbd>S</kbd> Save & Quit.
     </div>
 </div>
@@ -62,7 +63,7 @@
 <script>
 /**
  * Web Moria - Ultimate Demake
- * Features: Magic System, Light Sources/Darkness, Status Effects (Poison/Confuse), Expanded Equip.
+ * Features: Magic, Throwing, Multiplying Monsters, Traps (Doors/Teleport), Recall, Save/Load.
  */
 
 window.onload = () => {
@@ -131,23 +132,17 @@ window.onload = () => {
     ];
 
     const HAGGLE_INSULTS = [
-        "That's an insult!",
-        "You'll force me bankrupt!",
-        "May your chickens grow lips!",
-        "Are you mad?!?",
-        "My mother you can get for that, this costs more!",
-        "You drive a hard bargain, but no."
+        "That's an insult!", "You'll force me bankrupt!", "May your chickens grow lips!",
+        "Are you mad?!?", "My mother you can get for that, this costs more!", "You drive a hard bargain, but no."
     ];
 
     const HAGGLE_ACCEPTS = [
-        "Done!",
-        "A pleasure to do business with you!",
-        "You drive a hard bargain, but taken.",
-        "Agreed!",
-        "Sigh. I'll take it."
+        "Done!", "A pleasure to do business with you!", "You drive a hard bargain, but taken.",
+        "Agreed!", "Sigh. I'll take it."
     ];
 
     const MONSTER_TYPES = [
+        { char: 'w', name: 'Worm Mass', hp: 2, atk: 1, ac: 1, exp: 1, color: '#ffaaaa', minDepth: 1, effect: 'multiply' },
         { char: 'r', name: 'Giant Rat', hp: 4, atk: 2, ac: 2, exp: 2, color: '#888888', minDepth: 1 },
         { char: 'c', name: 'Giant Centipede', hp: 6, atk: 2, ac: 3, exp: 4, color: '#00cc00', minDepth: 1, effect: 'poison' },
         { char: 'k', name: 'Kobold', hp: 8, atk: 3, ac: 4, exp: 5, color: '#ff5555', minDepth: 1 },
@@ -158,25 +153,26 @@ window.onload = () => {
         { char: 'z', name: 'Zombie', hp: 25, atk: 7, ac: 5, exp: 20, color: '#66aa66', minDepth: 5 },
         { char: 'T', name: 'Troll', hp: 45, atk: 12, ac: 10, exp: 40, color: '#00aa00', minDepth: 8 },
         { char: 'O', name: 'Ogre', hp: 55, atk: 14, ac: 12, exp: 55, color: '#aaffaa', minDepth: 10 },
-        { char: 'V', name: 'Vampire', hp: 80, atk: 18, ac: 15, exp: 100, color: '#ff00ff', minDepth: 15 },
+        { char: 'V', name: 'Vampire', hp: 80, atk: 18, ac: 15, exp: 100, color: '#ff00ff', minDepth: 15, effect: 'drain' },
         { char: 'D', name: 'Ancient Dragon', hp: 150, atk: 28, ac: 20, exp: 300, color: '#ff0000', minDepth: 25 },
         { char: 'B', name: 'The Balrog', hp: 600, atk: 50, ac: 30, exp: 10000, color: '#ff8800', minDepth: 50, isBoss: true }
     ];
 
     const LOOT_TABLE = [
-        { type: 'food', char: ',', color: COLORS.food, name: 'Food Ration', val: 5, weight: 30 },
-        { type: 'light', char: '~', color: COLORS.light, name: 'Wooden Torch', radius: 5, life: 300, val: 5, weight: 15 },
-        { type: 'light', char: '~', color: COLORS.light, name: 'Brass Lantern', radius: 8, life: 1000, val: 50, weight: 5 },
-        { type: 'potion', char: '!', color: COLORS.potion, name: 'Health Potion', val: 25, weight: 20 },
-        { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Phase Door', val: 40, weight: 15, effect: 'phase' },
-        { type: 'wand', char: '-', color: COLORS.wand, name: 'Wand of Magic Missile', val: 100, weight: 10, charges: 5, dmg: 15 },
-        { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Dagger', atk: 2, val: 10, weight: 20 },
-        { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Longsword', atk: 6, val: 80, weight: 15 },
-        { type: 'weapon', char: '\\', color: COLORS.weapon, name: 'Battle Axe', atk: 8, val: 150, weight: 5 },
-        { type: 'armor', char: '[', color: COLORS.armor, name: 'Leather Armor', ac: 2, val: 20, weight: 20 },
-        { type: 'armor', char: '[', color: COLORS.armor, name: 'Chain Mail', ac: 5, val: 90, weight: 15 },
-        { type: 'shield', char: ')', color: COLORS.armor, name: 'Wooden Shield', ac: 2, val: 30, weight: 15 },
-        { type: 'ring', char: '=', color: COLORS.wand, name: 'Ring of Protection', ac: 3, val: 200, weight: 5 }
+        { type: 'food', char: ',', color: COLORS.food, name: 'Food Ration', val: 5, prob: 30, weight: 1 },
+        { type: 'light', char: '~', color: COLORS.light, name: 'Wooden Torch', radius: 4, life: 300, val: 5, prob: 15, weight: 2 },
+        { type: 'light', char: '~', color: COLORS.light, name: 'Brass Lantern', radius: 6, life: 1000, val: 50, prob: 5, weight: 5 },
+        { type: 'potion', char: '!', color: COLORS.potion, name: 'Health Potion', val: 25, prob: 20, weight: 1 },
+        { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Phase Door', val: 40, prob: 15, effect: 'phase', weight: 0 },
+        { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Word of Recall', val: 200, prob: 5, effect: 'recall', weight: 0 },
+        { type: 'wand', char: '-', color: COLORS.wand, name: 'Wand of Magic Missile', val: 100, prob: 10, charges: 5, dmg: 15, weight: 1 },
+        { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Dagger', atk: 2, val: 10, prob: 20, weight: 1 },
+        { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Longsword', atk: 6, val: 80, prob: 15, weight: 4 },
+        { type: 'weapon', char: '\\', color: COLORS.weapon, name: 'Battle Axe', atk: 8, val: 150, prob: 5, weight: 8 },
+        { type: 'armor', char: '[', color: COLORS.armor, name: 'Leather Armor', ac: 2, val: 20, prob: 20, weight: 15 },
+        { type: 'armor', char: '[', color: COLORS.armor, name: 'Chain Mail', ac: 5, val: 90, prob: 15, weight: 40 },
+        { type: 'shield', char: ')', color: COLORS.armor, name: 'Wooden Shield', ac: 2, val: 30, prob: 15, weight: 5 },
+        { type: 'ring', char: '=', color: COLORS.wand, name: 'Ring of Protection', ac: 3, val: 200, prob: 5, weight: 0 }
     ];
 
     class RNG {
@@ -186,9 +182,9 @@ window.onload = () => {
         static pickWeight(table, types = null) {
             let filtered = types ? table.filter(t => types.includes(t.type)) : table;
             if(filtered.length === 0) filtered = table;
-            let total = filtered.reduce((sum, item) => sum + item.weight, 0);
+            let total = filtered.reduce((sum, item) => sum + (item.prob || 0), 0);
             let r = this.rand(1, total), acc = 0;
-            for (let item of filtered) { acc += item.weight; if (r <= acc) return {...item}; }
+            for (let item of filtered) { acc += (item.prob || 0); if (r <= acc) return {...item}; }
             return {...filtered[0]};
         }
     }
@@ -201,6 +197,7 @@ window.onload = () => {
             this.ctx.font = `bold ${CELL_SIZE}px monospace`;
             this.ctx.textBaseline = 'top';
             this.messages = [];
+            this.isResting = false;
 
             this.advanceTurn = this.advanceTurn.bind(this);
             this.updateHunger = this.updateHunger.bind(this);
@@ -210,6 +207,8 @@ window.onload = () => {
             this.handleShopInput = this.handleShopInput.bind(this);
             this.saveGame = this.saveGame.bind(this);
             this.loadGame = this.loadGame.bind(this);
+            this.executeBuy = this.executeBuy.bind(this);
+            this.executeSell = this.executeSell.bind(this);
 
             this.bindEvents();
             this.state = 'MAIN_MENU';
@@ -249,14 +248,15 @@ window.onload = () => {
                 mana: maxMana, maxMana: maxMana,
                 gold: 150, food: 1000, maxFood: 1500,
                 poison: 0, confused: 0,
+                maxDepth: 0, recallTurns: 0,
                 ac: 10 + Math.floor((dex - 10)/3),
                 stats: { STR: str, INT: int, WIS: wis, DEX: dex, CON: con },
-                inventory: [], // Max 22
-                equip: { weapon: null, armor: null, shield: null, light: null, ring: null }
+                inventory: [], 
+                equip: { weapon: null, armor: null, shield: null, light: null, ring: null },
+                knownPrices: {}
             };
 
-            // Give starting torch
-            this.player.equip.light = { type: 'light', char: '~', color: COLORS.light, name: 'Wooden Torch', radius: 5, life: 300, val: 5, weight: 15 };
+            this.player.equip.light = { type: 'light', char: '~', color: COLORS.light, name: 'Wooden Torch', radius: 4, life: 300, val: 5, weight: 2 };
 
             this.shops = Array(6).fill(0).map((_, i) => this.generateShopInventory(i));
             this.state = 'PLAY';
@@ -285,28 +285,40 @@ window.onload = () => {
                 this.monsters = saveState.monsters; this.items = saveState.items;
                 this.depth = saveState.depth; this.turn = saveState.turn;
                 this.messages = saveState.messages; this.shops = saveState.shops;
+                
+                if (!this.player.knownPrices) this.player.knownPrices = {};
+
                 this.state = 'PLAY';
                 this.log("Game loaded successfully.", COLORS.player);
                 this.updateFOV();
                 this.draw();
             } else {
                 this.log("No save game found.", COLORS.warn);
-                this.draw();
+                if (this.state === 'MAIN_MENU') this.draw();
             }
         }
 
         getWeight() {
             if(!this.player) return 0;
             let w = 0;
-            for(let i of this.player.inventory) w += i.weight || 0;
-            for(let k in this.player.equip) if(this.player.equip[k]) w += this.player.equip[k].weight || 0;
+            for(let i of this.player.inventory) w += (i.weight || 0) * (i.quantity || 1);
+            for(let k in this.player.equip) if(this.player.equip[k]) w += (this.player.equip[k].weight || 0);
             return w;
         }
 
         generateShopInventory(shopIdx) {
             let inv = [];
             let numItems = RNG.rand(8, 16);
-            for (let i=0; i<numItems; i++) inv.push(RNG.pickWeight(LOOT_TABLE, SHOP_DATA[shopIdx].types));
+            for (let i=0; i<numItems; i++) {
+                let newItem = RNG.pickWeight(LOOT_TABLE, SHOP_DATA[shopIdx].types);
+                let existing = inv.find(item => item.name === newItem.name);
+                if (existing) {
+                    existing.quantity = (existing.quantity || 1) + 1;
+                } else {
+                    newItem.quantity = 1;
+                    inv.push(newItem);
+                }
+            }
             return inv;
         }
 
@@ -316,8 +328,43 @@ window.onload = () => {
             if (this.messages.length > 10) this.messages.shift();
         }
 
+        startResting() {
+            this.log("You begin resting...", COLORS.ui);
+            this.isResting = true;
+            this.draw();
+            
+            this.restInterval = setInterval(() => {
+                if (!this.isResting) { clearInterval(this.restInterval); return; }
+                if (this.player.hp >= this.player.maxHp && this.player.mana >= this.player.maxMana) {
+                    this.log("You wake up feeling refreshed.", COLORS.player);
+                    this.isResting = false; this.draw(); return;
+                }
+                if (this.player.food <= 200) {
+                    this.log("You wake up hungry.", COLORS.warn);
+                    this.isResting = false; this.draw(); return;
+                }
+                let danger = this.monsters.some(m => {
+                    let d = Math.abs(m.x - this.player.x) + Math.abs(m.y - this.player.y);
+                    return d < (this.player.equip.light ? this.player.equip.light.radius : 1.5) && this.map[m.y][m.x].visible;
+                });
+                if (danger) {
+                    this.log("You are awakened by a monster!", COLORS.warn);
+                    this.isResting = false; this.draw(); return;
+                }
+                this.advanceTurn(false);
+            }, 20);
+        }
+
         bindEvents() {
             window.addEventListener('keydown', (e) => {
+                if (this.isResting) {
+                    this.isResting = false;
+                    clearInterval(this.restInterval);
+                    this.log("You stop resting.", COLORS.ui);
+                    this.draw();
+                    e.preventDefault(); return;
+                }
+
                 if (this.state === 'MAIN_MENU') {
                     if (e.key.toLowerCase() === 'n') { this.state = 'CHAR_RACE'; this.draw(); }
                     if (e.key.toLowerCase() === 'l') { this.loadGame(); }
@@ -355,7 +402,7 @@ window.onload = () => {
 
                 if (this.state === 'SHOP') { this.handleShopInput(e.key); e.preventDefault(); return; }
 
-                if (this.state === 'INVENTORY' || this.state === 'EQUIPMENT') {
+                if (this.state === 'INVENTORY' || this.state === 'EQUIPMENT' || this.state === 'CHARACTER_SHEET') {
                     if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') { this.state = 'PLAY'; this.draw(); }
                     e.preventDefault(); return;
                 }
@@ -372,9 +419,10 @@ window.onload = () => {
                             } else this.draw(); 
                         } else {
                             if (idx >= 0 && idx < this.player.inventory.length) {
-                                if (this.selectAction === 'ZAP' || this.selectAction === 'READ') {
+                                if (this.selectAction === 'ZAP' || this.selectAction === 'READ' || this.selectAction === 'THROW') {
                                     this.selectedItemIdx = idx;
                                     if (this.selectAction === 'ZAP') this.promptDirection('ZAP_DIR', "Zap in which direction?");
+                                    else if (this.selectAction === 'THROW') this.promptDirection('THROW_DIR', "Throw in which direction?");
                                     else this.executeItemAction(idx, 'READ');
                                 } else {
                                     this.executeItemAction(idx, this.selectAction);
@@ -424,7 +472,6 @@ window.onload = () => {
                 let dir = this.getDirectionFromKey(e.key);
                 
                 if (this.player && this.player.confused > 0 && dir) {
-                    // Randomize movement if confused
                     let dirs = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0},{dx:-1,dy:-1},{dx:1,dy:-1},{dx:-1,dy:1},{dx:1,dy:1}];
                     dir = dirs[RNG.rand(0, 7)];
                 }
@@ -435,6 +482,8 @@ window.onload = () => {
                     switch(e.key) {
                         case 'i': this.state = 'INVENTORY'; this.draw(); e.preventDefault(); return;
                         case 'e': this.state = 'EQUIPMENT'; this.draw(); e.preventDefault(); return;
+                        case 'C': this.state = 'CHARACTER_SHEET'; this.draw(); e.preventDefault(); return;
+                        
                         case 'w': this.promptSelectItem('WEAR', 'Wear/Wield which item?'); e.preventDefault(); return;
                         case 't': this.promptSelectItem('TAKEOFF', 'Take off which item?'); e.preventDefault(); return;
                         case 'd': this.promptSelectItem('DROP', 'Drop which item?'); e.preventDefault(); return;
@@ -442,16 +491,29 @@ window.onload = () => {
                         case 'q': this.promptSelectItem('QUAFF', 'Quaff which potion?'); e.preventDefault(); return;
                         case 'z': this.promptSelectItem('ZAP', 'Zap which wand?'); e.preventDefault(); return;
                         case 'r': this.promptSelectItem('READ', 'Read which scroll?'); e.preventDefault(); return;
-                        case 'm': this.openSpellMenu(); e.preventDefault(); return;
+                        case 'v': this.promptSelectItem('THROW', 'Throw which item?'); e.preventDefault(); return;
+
+                        case 'm': 
+                            if (this.player.magicType === 'mage') this.openSpellMenu(); 
+                            else this.log("You cannot cast spells."); 
+                            e.preventDefault(); return;
+                        case 'p': 
+                            if (this.player.magicType === 'priest') this.openSpellMenu(); 
+                            else this.log("You cannot pray."); 
+                            e.preventDefault(); return;
+                        
                         case 'S': this.saveGame(); e.preventDefault(); return;
+                        case 'R': this.startResting(); e.preventDefault(); return;
                         
                         case 's': this.searchSurroundings(); acted = true; break;
                         case 'T': this.promptDirection('TUNNEL', 'Tunnel in which direction?'); e.preventDefault(); return;
                         case 'D': this.promptDirection('DISARM', 'Disarm in which direction?'); e.preventDefault(); return;
                         case 'c': this.promptDirection('CLOSE', 'Close door in which direction?'); e.preventDefault(); return;
-                        case 'x': this.promptDirection('EXAMINE', 'Examine in which direction?'); e.preventDefault(); return;
+                        case 'o': this.promptDirection('OPEN', 'Open door in which direction?'); e.preventDefault(); return;
+                        case 'B': this.promptDirection('BASH', 'Bash in which direction?'); e.preventDefault(); return;
+                        case 'l': this.promptDirection('EXAMINE', 'Look in which direction?'); e.preventDefault(); return;
 
-                        case '5': case '.': acted = true; this.log("You rest.", COLORS.ui); break;
+                        case '5': case '.': acted = true; this.log("You rest a turn.", COLORS.ui); break;
                         case '<': 
                             if (this.map[this.player.y][this.player.x].char === '<') {
                                 if (this.depth > 0) { this.depth--; this.generateLevel(true); acted = true; }
@@ -485,11 +547,10 @@ window.onload = () => {
             return null;
         }
 
-        advanceTurn() {
+        advanceTurn(doDraw = true) {
             this.turn++;
             this.updateHunger();
             
-            // Status Effects
             if (this.player.poison > 0) {
                 this.player.poison--;
                 if (this.turn % 2 === 0) {
@@ -509,11 +570,25 @@ window.onload = () => {
                 }
             }
 
+            if (this.player.recallTurns > 0) {
+                this.player.recallTurns--;
+                if (this.player.recallTurns <= 0) {
+                    this.log("You feel yourself yanked upwards!", COLORS.warn);
+                    if (this.depth > 0) {
+                        this.depth = 0;
+                    } else {
+                        this.depth = Math.max(1, this.player.maxDepth);
+                    }
+                    this.generateLevel(true);
+                }
+            }
+
             this.updateMonsters();
             this.updateFOV();
             this.checkLevelUp();
             
-            // Passive regeneration
+            if (this.depth > this.player.maxDepth) this.player.maxDepth = this.depth;
+
             if (this.turn % 15 === 0 && this.player.hp < this.player.maxHp && this.player.food > 0 && this.player.poison === 0) this.player.hp++;
             if (this.turn % 10 === 0 && this.player.mana < this.player.maxMana) this.player.mana++;
 
@@ -523,22 +598,19 @@ window.onload = () => {
                 localStorage.removeItem('moriaSave');
                 this.log("You die.", '#f00');
             }
-            this.draw();
+            if (doDraw) this.draw();
         }
 
         // --- ACTIONS ---
         openSpellMenu() {
             if (this.player.magicType === 'none') {
-                this.log("You cannot cast spells.", COLORS.warn);
-                return;
+                this.log("You cannot cast spells.", COLORS.warn); return;
             }
             let spells = SPELLBOOK[this.player.magicType] ? SPELLBOOK[this.player.magicType].filter(s => s.lvl <= this.player.level) : [];
             if (spells.length === 0) {
-                this.log("You don't know any spells yet.", COLORS.warn);
-                return;
+                this.log("You don't know any spells yet.", COLORS.warn); return;
             }
-            this.state = 'SPELL_MENU';
-            this.draw();
+            this.state = 'SPELL_MENU'; this.draw();
         }
 
         castSpell(spell, dx, dy) {
@@ -555,12 +627,10 @@ window.onload = () => {
                 this.player.poison = 0;
                 this.log("The poison leaves your system.");
             } else if (spell.type === 'light') {
-                // Pseudo light spell - reveals area
                 for(let y=this.player.y-5; y<=this.player.y+5; y++) {
                     for(let x=this.player.x-5; x<=this.player.x+5; x++) {
                         if(x>=0&&y>=0&&x<MAP_COLS&&y<MAP_ROWS) {
-                            this.map[y][x].explored = true;
-                            this.map[y][x].visible = true;
+                            this.map[y][x].explored = true; this.map[y][x].visible = true;
                         }
                     }
                 }
@@ -578,10 +648,9 @@ window.onload = () => {
                         this.log(`The spell hits the ${m.name} for ${spell.dmg}!`, COLORS.wand);
                         if (m.currentHp <= 0) {
                             this.log(`You have slain the ${m.name}!`);
-                            this.player.exp += m.exp;
-                            this.monsters.splice(mId, 1);
+                            this.player.exp += m.exp; this.monsters.splice(mId, 1);
                         }
-                        if (spell.type !== 'ball') break; // Ball goes through, bolt stops
+                        if (spell.type !== 'ball') break; 
                     }
                 }
             }
@@ -615,10 +684,23 @@ window.onload = () => {
         }
 
         triggerTrap(tx, ty) {
-            let dmg = RNG.roll(1, 6) + Math.floor(this.depth / 2);
-            this.player.hp -= dmg;
-            this.log(`A trap strikes you for ${dmg} damage!`, COLORS.trap);
-            if (this.player.hp <= 0) { this.state = 'DEAD'; this.player.hp = 0; this.log("You die.", '#f00'); }
+            let t = this.map[ty][tx];
+            if (t.trapType === 1) { // Teleport trap
+                this.log("You hit a teleport trap!", COLORS.trap);
+                this.player.x = RNG.rand(1, MAP_COLS-2);
+                this.player.y = RNG.rand(1, MAP_ROWS-2);
+            } else if (t.trapType === 2) { // Trap Door
+                this.log("You fell through a trap door!", COLORS.trap);
+                this.player.hp -= RNG.roll(2, 6);
+                if (this.player.hp <= 0) { this.state = 'DEAD'; this.player.hp = 0; this.log("You die.", '#f00'); return; }
+                this.depth++;
+                this.generateLevel();
+            } else { // Dart Trap
+                let dmg = RNG.roll(1, 6) + Math.floor(this.depth / 2);
+                this.player.hp -= dmg;
+                this.log(`A dart strikes you for ${dmg} damage!`, COLORS.trap);
+                if (this.player.hp <= 0) { this.state = 'DEAD'; this.player.hp = 0; this.log("You die.", '#f00'); }
+            }
         }
 
         executeDirectionAction(dx, dy) {
@@ -662,11 +744,41 @@ window.onload = () => {
                 this.advanceTurn(); return;
             }
 
+            if (this.targetAction === 'OPEN') {
+                if (cell.char === '+') {
+                    cell.char = "'"; cell.solid = false; cell.opaque = false;
+                    this.log("You open the door.");
+                } else if (cell.isSecretDoor) {
+                    cell.isSecretDoor = false; cell.char = "'"; cell.solid = false; cell.opaque = false;
+                    this.log("You open a secret door!");
+                } else {
+                    this.log("I do not see anything to open there.");
+                }
+                this.advanceTurn(); return;
+            }
+
             if (this.targetAction === 'CLOSE') {
                 if (cell.char === "'") {
                     if (mIdx !== -1) this.log("A monster is in the way!");
                     else { cell.char = '+'; cell.solid = true; cell.opaque = true; this.log("You close the door."); }
                 } else this.log("There is no open door there.");
+                this.advanceTurn(); return;
+            }
+
+            if (this.targetAction === 'BASH') {
+                if (cell.char === '+') {
+                    if (RNG.chance(30 + this.player.stats.STR * 2)) {
+                        cell.char = "'"; cell.solid = false; cell.opaque = false;
+                        this.log("You smash the door open!");
+                    } else {
+                        this.log("The door holds firm.");
+                    }
+                } else if (mIdx !== -1) {
+                    this.log("You bash into the monster!");
+                    this.attackMonster(mIdx); 
+                } else {
+                    this.log("You bash against it, but nothing happens.");
+                }
                 this.advanceTurn(); return;
             }
 
@@ -682,9 +794,7 @@ window.onload = () => {
                     if (RNG.chance(10)) {
                         this.log("You tunnel through the hard rock.");
                         cell.char = '.'; cell.solid = false; cell.opaque = false;
-                        if(cell.isSecretDoor) {
-                            cell.isSecretDoor = false;
-                        }
+                        if(cell.isSecretDoor) cell.isSecretDoor = false;
                     } else this.log("You strike the rock, but it holds firm.");
                 } else if (cell.isSecretDoor) {
                     this.log("You bash the rock, revealing a door!");
@@ -692,6 +802,49 @@ window.onload = () => {
                 } else this.log("You tunnel at empty air.");
                 this.advanceTurn(); return;
             } 
+
+            if (this.targetAction === 'THROW_DIR') {
+                let item = this.player.inventory[this.selectedItemIdx];
+                let thrownItem = {...item, quantity: 1};
+                
+                if (item.quantity > 1) item.quantity--;
+                else this.player.inventory.splice(this.selectedItemIdx, 1);
+                
+                let cx = this.player.x, cy = this.player.y;
+                let hitMonster = null;
+                for (let r=0; r<10; r++) {
+                    cx += dx; cy += dy;
+                    if (this.map[cy][cx].solid && !this.map[cy][cx].isSecretDoor) {
+                        cx -= dx; cy -= dy; 
+                        break;
+                    }
+                    let mId = this.monsters.findIndex(m => m.x === cx && m.y === cy);
+                    if (mId !== -1) {
+                        hitMonster = this.monsters[mId]; break;
+                    }
+                }
+                if (hitMonster) {
+                    let dmg = RNG.roll(1, 4) + Math.floor((this.player.stats.STR - 10) / 2);
+                    if (thrownItem.type === 'weapon') dmg += thrownItem.atk;
+                    hitMonster.currentHp -= Math.max(1, dmg);
+                    this.log(`You hit the ${hitMonster.name} with the ${thrownItem.name} for ${Math.max(1, dmg)}!`, COLORS.player);
+                    if (hitMonster.currentHp <= 0) {
+                        this.log(`You have slain the ${hitMonster.name}!`);
+                        this.player.exp += hitMonster.exp;
+                        this.monsters = this.monsters.filter(m => m !== hitMonster);
+                    }
+                } else {
+                    this.log(`The ${thrownItem.name} lands on the floor.`);
+                }
+                
+                if (thrownItem.type !== 'potion' && RNG.chance(70)) {
+                    thrownItem.x = cx; thrownItem.y = cy;
+                    this.items.push(thrownItem);
+                } else {
+                    this.log(`The ${thrownItem.name} shatters!`, COLORS.warn);
+                }
+                this.advanceTurn(); return;
+            }
 
             if (this.targetAction === 'ZAP_DIR') {
                 let item = this.player.inventory[this.selectedItemIdx];
@@ -701,7 +854,8 @@ window.onload = () => {
                 item.charges--;
                 if (item.charges <= 0) {
                     this.log(`The ${item.name} crumbles to dust!`);
-                    this.player.inventory.splice(this.selectedItemIdx, 1);
+                    if (item.quantity > 1) item.quantity--;
+                    else this.player.inventory.splice(this.selectedItemIdx, 1);
                 }
 
                 let cx = this.player.x, cy = this.player.y;
@@ -724,11 +878,6 @@ window.onload = () => {
                 }
                 this.advanceTurn(); return;
             }
-
-            if (this.targetAction === 'SPELL_DIR') {
-                this.castSpell(this.selectedSpell, dx, dy);
-                return;
-            }
         }
 
         promptSelectItem(action, msg) {
@@ -749,27 +898,42 @@ window.onload = () => {
             if (action === 'WEAR') {
                 if (['weapon', 'armor', 'shield', 'light', 'ring'].includes(item.type)) {
                     let old = this.player.equip[item.type];
-                    this.player.equip[item.type] = item;
-                    this.player.inventory.splice(idx, 1);
-                    if (old) this.player.inventory.push(old);
+                    
+                    let equipItem = {...item, quantity: 1};
+                    this.player.equip[item.type] = equipItem;
+                    
+                    if (item.quantity > 1) item.quantity--;
+                    else this.player.inventory.splice(idx, 1);
+                    
+                    if (old) {
+                        let stackable = ['food', 'potion', 'scroll'].includes(old.type); 
+                        let existing = stackable ? this.player.inventory.find(i => i.name === old.name) : null;
+                        if (existing) existing.quantity = (existing.quantity || 1) + 1;
+                        else this.player.inventory.push(old);
+                    }
+                    
                     this.log(`You equip the ${item.name}.`, COLORS[item.type] || COLORS.ui);
                     acted = true;
-                    // Recalculate AC
                     this.player.ac = 10 + Math.floor((this.player.stats.DEX - 10)/3);
                 } else this.log("You cannot wear/wield that.", COLORS.warn);
             } else if (action === 'DROP') {
-                item.x = this.player.x; item.y = this.player.y;
-                this.items.push(item); this.player.inventory.splice(idx, 1);
+                let droppedItem = {...item, quantity: 1, x: this.player.x, y: this.player.y};
+                this.items.push(droppedItem);
+                if (item.quantity > 1) item.quantity--; else this.player.inventory.splice(idx, 1);
                 this.log(`You drop the ${item.name}.`); acted = true;
             } else if (action === 'EAT') {
                 if (item.type === 'food') {
                     this.player.food = Math.min(this.player.maxFood, this.player.food + item.val);
-                    this.log(`You eat the ${item.name}.`); this.player.inventory.splice(idx, 1); acted = true;
+                    this.log(`You eat the ${item.name}.`); 
+                    if (item.quantity > 1) item.quantity--; else this.player.inventory.splice(idx, 1);
+                    acted = true;
                 } else this.log("You can't eat that!", COLORS.warn);
             } else if (action === 'QUAFF') {
                 if (item.type === 'potion') {
                     this.player.hp = Math.min(this.player.maxHp, this.player.hp + item.val);
-                    this.log(`You quaff the ${item.name}.`); this.player.inventory.splice(idx, 1); acted = true;
+                    this.log(`You quaff the ${item.name}.`); 
+                    if (item.quantity > 1) item.quantity--; else this.player.inventory.splice(idx, 1);
+                    acted = true;
                 } else this.log("You can't quaff that!", COLORS.warn);
             } else if (action === 'READ') {
                 if (item.type === 'scroll') {
@@ -777,10 +941,14 @@ window.onload = () => {
                     if (item.effect === 'phase') {
                         this.player.x = RNG.rand(1, MAP_COLS-2); this.player.y = RNG.rand(1, MAP_ROWS-2);
                         this.log("You blink out and reappear elsewhere!");
+                    } else if (item.effect === 'recall') {
+                        this.log("The air around you begins to crackle...");
+                        this.player.recallTurns = 15;
                     } else if (item.effect === 'light') {
                         this.log("A bright light surrounds you."); 
                     }
-                    this.player.inventory.splice(idx, 1); acted = true;
+                    if (item.quantity > 1) item.quantity--; else this.player.inventory.splice(idx, 1);
+                    acted = true;
                 } else this.log("You can't read that!", COLORS.warn);
             }
 
@@ -791,13 +959,83 @@ window.onload = () => {
         takeOff(slot) {
             let item = this.player.equip[slot];
             if (!item) return;
-            if (this.player.inventory.length >= 22) {
-                this.log("Your backpack is full!", COLORS.warn); this.state = 'PLAY'; this.draw(); return;
+            
+            let stackable = ['food', 'potion', 'scroll'].includes(item.type);
+            let existing = stackable ? this.player.inventory.find(i => i.name === item.name) : null;
+            
+            if (existing) {
+                existing.quantity = (existing.quantity || 1) + 1;
+            } else {
+                if (this.player.inventory.length >= 22) {
+                    this.log("Your backpack is full!", COLORS.warn); this.state = 'PLAY'; this.draw(); return;
+                }
+                item.quantity = 1;
+                this.player.inventory.push(item); 
             }
-            this.player.inventory.push(item); this.player.equip[slot] = null;
+            
+            this.player.equip[slot] = null;
             this.log(`You take off the ${item.name}.`);
-            this.player.ac = 10 + Math.floor((this.player.stats.DEX - 10)/3); // Recalc base AC
+            this.player.ac = 10 + Math.floor((this.player.stats.DEX - 10)/3); 
             this.state = 'PLAY'; this.advanceTurn();
+        }
+
+        executeBuy(price) {
+            if (this.player.gold >= price) {
+                let stackable = ['food', 'potion', 'scroll'].includes(this.haggleItem.type);
+                let existing = stackable ? this.player.inventory.find(i => i.name === this.haggleItem.name) : null;
+                
+                if (existing || this.player.inventory.length < 22) {
+                    this.player.gold -= price; 
+                    
+                    if (existing) {
+                        existing.quantity = (existing.quantity || 1) + 1;
+                    } else {
+                        let boughtItem = {...this.haggleItem};
+                        boughtItem.quantity = 1;
+                        this.player.inventory.push(boughtItem);
+                    }
+                    
+                    if (this.haggleItem.quantity > 1) {
+                        this.haggleItem.quantity--;
+                    } else {
+                        this.shops[this.currentShopIdx].splice(this.haggleItemIdx, 1);
+                    }
+                    
+                    this.player.knownPrices[this.haggleItem.name] = price; 
+                    this.shopSubState = 'MAIN'; 
+                    this.shopKeeperMsg = HAGGLE_ACCEPTS[RNG.rand(0, HAGGLE_ACCEPTS.length-1)];
+                } else { 
+                    this.shopSubState = 'MAIN'; this.shopKeeperMsg = "Your backpack is full!"; 
+                }
+            } else { 
+                this.shopKeeperMsg = "You don't have that much gold, beggar! Offer?"; 
+            }
+        }
+
+        executeSell(price) {
+            this.player.gold += price; 
+            let soldItem = {...this.haggleItem};
+            soldItem.quantity = 1;
+            
+            let shopInv = this.shops[this.currentShopIdx];
+            let existing = shopInv.find(i => i.name === soldItem.name);
+            if (existing) {
+                existing.quantity = (existing.quantity || 1) + 1;
+            } else {
+                shopInv.push(soldItem);
+            }
+
+            if (this.haggleItem.quantity > 1) {
+                this.haggleItem.quantity--;
+            } else {
+                this.player.inventory.splice(this.haggleItemIdx, 1);
+            }
+
+            if (!this.player.knownPrices[this.haggleItem.name]) {
+                this.player.knownPrices[this.haggleItem.name] = Math.floor(price * 1.25); 
+            }
+            this.shopSubState = 'MAIN'; 
+            this.shopKeeperMsg = HAGGLE_ACCEPTS[RNG.rand(0, HAGGLE_ACCEPTS.length-1)];
         }
 
         // --- SHOP & HAGGLING LOGIC ---
@@ -826,16 +1064,47 @@ window.onload = () => {
                     if (idx >= 0 && idx < targetInv.length) {
                         this.haggleItem = targetInv[idx]; this.haggleItemIdx = idx;
                         this.haggleInput = "";
+                        this.haggleAnnoyance = 0;
+                        let baseVal = this.haggleItem.val;
+                        
                         if (this.shopSubState === 'BUY_SELECT') {
-                            this.shopAsk = Math.floor(this.haggleItem.val * (1.2 + Math.random()));
-                            this.shopSubState = 'HAGGLE_BUY';
-                            this.shopKeeperMsg = `For the ${this.haggleItem.name}, I want ${this.shopAsk} gold. Offer?`;
+                            if (this.player.knownPrices[this.haggleItem.name]) {
+                                this.shopAsk = this.player.knownPrices[this.haggleItem.name];
+                                this.shopSubState = 'CONFIRM_BUY';
+                                this.shopKeeperMsg = `You can have it for ${this.shopAsk} gold. Buy? (y/n)`;
+                            } else {
+                                this.minAccept = Math.floor(baseVal * (1.05 + Math.random() * 0.1));
+                                this.shopAsk = Math.floor(baseVal * (1.3 + Math.random() * 0.2));
+                                this.shopSubState = 'HAGGLE_BUY';
+                                this.shopKeeperMsg = `For the ${this.haggleItem.name}, I want ${this.shopAsk} gold. Offer?`;
+                            }
                         } else {
-                            this.shopOffer = Math.floor(Math.max(1, this.haggleItem.val * (0.5 + Math.random() * 0.3)));
-                            this.shopSubState = 'HAGGLE_SELL';
-                            this.shopKeeperMsg = `I offer ${this.shopOffer} gold for the ${this.haggleItem.name}. Ask?`;
+                            if (this.player.knownPrices[this.haggleItem.name]) {
+                                this.shopOffer = Math.floor(this.player.knownPrices[this.haggleItem.name] * 0.8);
+                                if (this.shopOffer < 1) this.shopOffer = 1;
+                                this.shopSubState = 'CONFIRM_SELL';
+                                this.shopKeeperMsg = `I will give you ${this.shopOffer} gold. Sell? (y/n)`;
+                            } else {
+                                this.maxAccept = Math.floor(baseVal * (0.85 - Math.random() * 0.1));
+                                this.shopOffer = Math.floor(baseVal * (0.5 - Math.random() * 0.2));
+                                if (this.shopOffer < 1) this.shopOffer = 1;
+                                this.shopSubState = 'HAGGLE_SELL';
+                                this.shopKeeperMsg = `I offer ${this.shopOffer} gold for the ${this.haggleItem.name}. Ask?`;
+                            }
                         }
                     }
+                }
+            } else if (this.shopSubState === 'CONFIRM_BUY') {
+                if (key.toLowerCase() === 'y') {
+                    this.executeBuy(this.shopAsk);
+                } else if (key.toLowerCase() === 'n' || key === 'Escape') {
+                    this.shopSubState = 'MAIN'; this.shopKeeperMsg = "Suit yourself.";
+                }
+            } else if (this.shopSubState === 'CONFIRM_SELL') {
+                if (key.toLowerCase() === 'y') {
+                    this.executeSell(this.shopOffer);
+                } else if (key.toLowerCase() === 'n' || key === 'Escape') {
+                    this.shopSubState = 'MAIN'; this.shopKeeperMsg = "Fine, keep your junk.";
                 }
             } else if (this.shopSubState === 'HAGGLE_BUY' || this.shopSubState === 'HAGGLE_SELL') {
                 if (key === 'Escape') { this.shopSubState = 'MAIN'; this.shopKeeperMsg = "Changed your mind? Fine."; }
@@ -845,26 +1114,45 @@ window.onload = () => {
                     let amt = parseInt(this.haggleInput); this.haggleInput = "";
                     if (this.shopSubState === 'HAGGLE_BUY') {
                         if (amt >= this.shopAsk) {
-                            if (this.player.gold >= amt) {
-                                if (this.player.inventory.length < 22) {
-                                    this.player.gold -= amt; this.player.inventory.push(this.haggleItem);
-                                    shopInv.splice(this.haggleItemIdx, 1);
-                                    this.shopSubState = 'MAIN'; this.shopKeeperMsg = HAGGLE_ACCEPTS[RNG.rand(0, HAGGLE_ACCEPTS.length-1)];
-                                } else { this.shopSubState = 'MAIN'; this.shopKeeperMsg = "Your backpack is full!"; }
-                            } else this.shopKeeperMsg = "You don't have that much gold, beggar!";
-                        } else if (amt < this.haggleItem.val * 0.6) this.shopKeeperMsg = HAGGLE_INSULTS[RNG.rand(0, HAGGLE_INSULTS.length-1)] + ` I want ${this.shopAsk}.`;
-                        else {
+                            this.executeBuy(amt);
+                        } else if (amt >= this.minAccept) {
                             let drop = Math.max(1, Math.floor((this.shopAsk - amt) / 3));
-                            this.shopAsk -= drop; this.shopKeeperMsg = `No. I must have ${this.shopAsk} gold. Offer?`;
+                            this.shopAsk -= drop;
+                            if (this.shopAsk <= amt) {
+                                this.executeBuy(amt);
+                            } else {
+                                this.shopKeeperMsg = `No, no. I must have ${this.shopAsk} gold. Offer?`;
+                            }
+                        } else {
+                            this.haggleAnnoyance++;
+                            if (this.haggleAnnoyance > 3) {
+                                this.state = 'PLAY'; this.log("The shopkeeper kicks you out!", COLORS.warn);
+                            } else {
+                                let drop = Math.max(1, Math.floor((this.shopAsk - this.minAccept) / 10));
+                                this.shopAsk -= drop;
+                                this.shopKeeperMsg = HAGGLE_INSULTS[RNG.rand(0, HAGGLE_INSULTS.length-1)] + ` I must have ${this.shopAsk} gold. Offer?`;
+                            }
                         }
-                    } else {
+                    } else { // HAGGLE_SELL
                         if (amt <= this.shopOffer) {
-                            this.player.gold += amt; shopInv.push(this.haggleItem); this.player.inventory.splice(this.haggleItemIdx, 1);
-                            this.shopSubState = 'MAIN'; this.shopKeeperMsg = HAGGLE_ACCEPTS[RNG.rand(0, HAGGLE_ACCEPTS.length-1)];
-                        } else if (amt > this.haggleItem.val * 1.8) this.shopKeeperMsg = HAGGLE_INSULTS[RNG.rand(0, HAGGLE_INSULTS.length-1)] + ` I offer ${this.shopOffer}.`;
-                        else {
+                            this.executeSell(amt);
+                        } else if (amt <= this.maxAccept) {
                             let raise = Math.max(1, Math.floor((amt - this.shopOffer) / 3));
-                            this.shopOffer += raise; this.shopKeeperMsg = `Too much. I will give you ${this.shopOffer}. Ask?`;
+                            this.shopOffer += raise;
+                            if (this.shopOffer >= amt) {
+                                this.executeSell(amt);
+                            } else {
+                                this.shopKeeperMsg = `That is too much. I will give you ${this.shopOffer} gold. Ask?`;
+                            }
+                        } else {
+                            this.haggleAnnoyance++;
+                            if (this.haggleAnnoyance > 3) {
+                                this.state = 'PLAY'; this.log("The shopkeeper kicks you out!", COLORS.warn);
+                            } else {
+                                let raise = Math.max(1, Math.floor((this.maxAccept - this.shopOffer) / 10));
+                                this.shopOffer += raise;
+                                this.shopKeeperMsg = HAGGLE_INSULTS[RNG.rand(0, HAGGLE_INSULTS.length-1)] + ` I offer ${this.shopOffer}. Ask?`;
+                            }
                         }
                     }
                 }
@@ -892,7 +1180,11 @@ window.onload = () => {
             if (this.depth === 0) this.generateTown(); else this.generateDungeon(goingUp);
             this.updateFOV();
             if (this.depth === 0) this.log("You enter the Town.", COLORS.ui);
-            else this.log(`You enter Level ${this.depth}.`, COLORS.ui);
+            else {
+                // Level Feeling
+                if (this.depth % 5 === 0 || RNG.chance(10)) this.log("You have a superb feeling about this level.", COLORS.player);
+                else this.log(`You enter Level ${this.depth}.`, COLORS.ui);
+            }
         }
 
         generateTown() {
@@ -944,8 +1236,8 @@ window.onload = () => {
                         if (((N && S && !E && !W) || (!N && !S && E && W)) && RNG.chance(20)) {
                             this.map[y][x] = { char: '+', explored: false, visible: false, solid: true, opaque: true };
                             if (RNG.chance(30)) { this.map[y][x].char = '#'; this.map[y][x].isSecretDoor = true; } // Secret door
-                        } else if (RNG.chance(2)) { // Traps
-                            this.map[y][x].isTrap = true; this.map[y][x].trapHidden = true;
+                        } else if (RNG.chance(3)) { // Traps
+                            this.map[y][x].isTrap = true; this.map[y][x].trapHidden = true; this.map[y][x].trapType = RNG.rand(0, 2);
                         }
                     } else if (this.map[y][x].char === '#') {
                         if (RNG.chance(5)) this.map[y][x].char = '%'; // Mineral vein
@@ -962,14 +1254,13 @@ window.onload = () => {
             let numItems = RNG.rand(4, 10 + Math.floor(this.depth / 2));
             for (let i = 0; i < numItems; i++) {
                 let rx, ry; do { rx = RNG.rand(1, MAP_COLS - 2); ry = RNG.rand(1, MAP_ROWS - 2); } while (this.map[ry][rx].solid || (rx === this.player.x && ry === this.player.y));
-                if (RNG.chance(40)) this.items.push({ x: rx, y: ry, type: 'gold', char: '$', color: COLORS.gold, name: 'Gold', val: RNG.roll(this.depth, 10) + 5 });
+                if (RNG.chance(40)) this.items.push({ x: rx, y: ry, type: 'gold', char: '$', color: COLORS.gold, name: 'Gold', val: RNG.roll(this.depth, 15) + 5 });
                 else { let loot = RNG.pickWeight(LOOT_TABLE); loot.x = rx; loot.y = ry; this.items.push(loot); }
             }
 
             let numMonsters = RNG.rand(5 + this.depth, 12 + this.depth);
             if (this.depth === MAX_DEPTH && !goingUp) {
                 this.monsters.push({ ...MONSTER_TYPES[MONSTER_TYPES.length - 1], x: endRoom.cx + 1, y: endRoom.cy, currentHp: 600 });
-                this.log("You feel a terrifying heat radiating from the depths...", '#ff5500');
             }
             let avail = MONSTER_TYPES.filter(m => m.minDepth <= this.depth && !m.isBoss);
             for (let i = 0; i < numMonsters; i++) {
@@ -983,7 +1274,7 @@ window.onload = () => {
             if (this.depth === 0) return; 
             for (let y = 0; y < MAP_ROWS; y++) for (let x = 0; x < MAP_COLS; x++) this.map[y][x].visible = false;
             
-            let lightRadius = this.player.equip.light ? this.player.equip.light.radius : 1;
+            let lightRadius = this.player.equip.light ? this.player.equip.light.radius : 1.5;
 
             for (let angle = 0; angle < 360; angle += 1.5) {
                 let dx = Math.cos(angle * Math.PI / 180), dy = Math.sin(angle * Math.PI / 180);
@@ -1023,7 +1314,7 @@ window.onload = () => {
             if (!targetCell.solid) {
                 this.player.x = nx; this.player.y = ny;
                 if (targetCell.isTrap) {
-                    if (targetCell.trapHidden) { targetCell.trapHidden = false; this.log("You found a trap!", COLORS.trap); }
+                    if (targetCell.trapHidden) { targetCell.trapHidden = false; }
                     if (RNG.chance(50)) {
                         this.triggerTrap(nx, ny);
                     } else this.log("You safely pass a trap.");
@@ -1034,9 +1325,23 @@ window.onload = () => {
                     let item = this.items[iIdx];
                     if (item.type === 'gold') {
                         this.player.gold += item.val; this.log(`You found ${item.val} gold pieces.`, COLORS.gold); this.items.splice(iIdx, 1);
-                    } else if (this.player.inventory.length < 22) {
-                        this.player.inventory.push(item); this.log(`You picked up a ${item.name}.`, item.color); this.items.splice(iIdx, 1);
-                    } else this.log(`Your backpack is full! You step over the ${item.name}.`, COLORS.warn);
+                    } else {
+                        let stackable = ['food', 'potion', 'scroll'].includes(item.type);
+                        let existing = stackable ? this.player.inventory.find(i => i.name === item.name) : null;
+                        
+                        if (existing) {
+                            existing.quantity = (existing.quantity || 1) + (item.quantity || 1);
+                            this.log(`You picked up a ${item.name}.`, item.color); 
+                            this.items.splice(iIdx, 1);
+                        } else if (this.player.inventory.length < 22) {
+                            item.quantity = item.quantity || 1;
+                            this.player.inventory.push(item); 
+                            this.log(`You picked up a ${item.name}.`, item.color); 
+                            this.items.splice(iIdx, 1);
+                        } else {
+                            this.log(`Your backpack is full! You step over the ${item.name}.`, COLORS.warn);
+                        }
+                    }
                 }
             }
         }
@@ -1069,6 +1374,7 @@ window.onload = () => {
         }
 
         updateMonsters() {
+            let newSpawns = [];
             for (let m of this.monsters) {
                 let dist = Math.abs(m.x - this.player.x) + Math.abs(m.y - this.player.y);
                 
@@ -1086,6 +1392,9 @@ window.onload = () => {
                         } else if (m.effect === 'confuse') {
                             this.player.confused += RNG.rand(3, 8);
                             this.log(`You feel confused!`, COLORS.warn);
+                        } else if (m.effect === 'drain') {
+                            this.player.exp = Math.max(0, this.player.exp - RNG.rand(5, 15));
+                            this.log(`The ${m.name} drains your life force!`, COLORS.warn);
                         }
 
                     } else {
@@ -1095,14 +1404,33 @@ window.onload = () => {
                     let dx = Math.sign(this.player.x - m.x);
                     let dy = Math.sign(this.player.y - m.y);
                     
-                    if (!this.map[m.y + dy][m.x + dx].solid && !this.monsters.some(other => other.x === m.x + dx && other.y === m.y + dy)) {
+                    if (!this.map[m.y + dy][m.x + dx].solid && !this.monsters.some(other => other.x === m.x + dx && other.y === m.y + dy) && !newSpawns.some(other => other.x === m.x + dx && other.y === m.y + dy)) {
                         m.x += dx; m.y += dy;
-                    } else if (!this.map[m.y][m.x + dx].solid && !this.monsters.some(other => other.x === m.x + dx && other.y === m.y)) {
+                    } else if (!this.map[m.y][m.x + dx].solid && !this.monsters.some(other => other.x === m.x + dx && other.y === m.y) && !newSpawns.some(other => other.x === m.x + dx && other.y === m.y)) {
                         m.x += dx;
-                    } else if (!this.map[m.y + dy][m.x].solid && !this.monsters.some(other => other.x === m.x && other.y === m.y + dy)) {
+                    } else if (!this.map[m.y + dy][m.x].solid && !this.monsters.some(other => other.x === m.x && other.y === m.y + dy) && !newSpawns.some(other => other.x === m.x && other.y === m.y + dy)) {
                         m.y += dy;
                     }
                 }
+
+                // Monster Reproduction Mechanics (Worm Masses)
+                if (m.effect === 'multiply' && RNG.chance(5)) {
+                    let dirs = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0}];
+                    for (let d of dirs) {
+                        let nx = m.x + d.dx, ny = m.y + d.dy;
+                        if (!this.map[ny][nx].solid && this.map[ny][nx].char === '.' && 
+                            !this.monsters.some(om => om.x===nx && om.y===ny) && 
+                            !newSpawns.some(om => om.x===nx && om.y===ny) &&
+                            (nx !== this.player.x || ny !== this.player.y)) {
+                            newSpawns.push({...m, x: nx, y: ny, currentHp: m.hp});
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (newSpawns.length > 0) {
+                this.monsters = this.monsters.concat(newSpawns);
             }
         }
 
@@ -1166,7 +1494,8 @@ window.onload = () => {
 
             this.drawUI();
 
-            if (this.state === 'INVENTORY' || (this.state === 'SELECT_ITEM' && this.selectAction !== 'TAKEOFF')) this.drawOverlay("--- INVENTORY ---", this.player.inventory, false);
+            if (this.state === 'CHARACTER_SHEET') this.drawCharacterSheet();
+            else if (this.state === 'INVENTORY' || (this.state === 'SELECT_ITEM' && this.selectAction !== 'TAKEOFF')) this.drawOverlay("--- INVENTORY ---", this.player.inventory, false);
             else if (this.state === 'EQUIPMENT' || (this.state === 'SELECT_ITEM' && this.selectAction === 'TAKEOFF')) this.drawOverlay("--- EQUIPMENT ---", [this.player.equip.weapon, this.player.equip.armor, this.player.equip.shield, this.player.equip.light, this.player.equip.ring], true);
             else if (this.state === 'SPELL_MENU') this.drawSpellOverlay();
         }
@@ -1215,13 +1544,26 @@ window.onload = () => {
             this.drawText(`--- ${shopInfo.name} ---`, 2, 2, COLORS.shop); this.drawText(`Owner: ${shopInfo.owner}`, 2, 4, COLORS.text); this.drawText(`Your Gold: ${this.player.gold}`, 40, 4, COLORS.gold);
             this.drawText(`>>> ${this.shopKeeperMsg}`, 2, 6, COLORS.msg);
             if (this.shopSubState === 'HAGGLE_BUY' || this.shopSubState === 'HAGGLE_SELL') { this.drawText(`> ${this.haggleInput}_`, 2, 8, COLORS.text); this.drawText("(Press Enter to submit, Backspace to edit, ESC to cancel)", 2, 10, COLORS.ui); }
+            if (this.shopSubState === 'CONFIRM_BUY' || this.shopSubState === 'CONFIRM_SELL') { this.drawText("(Press y to accept, n to decline)", 2, 10, COLORS.ui); }
             if (this.shopSubState === 'MAIN' || this.shopSubState === 'BUY_SELECT') {
                 this.drawText("Items for Sale:", 2, 12, COLORS.ui);
-                for(let i=0; i<shopInv.length; i++) this.drawText(`${String.fromCharCode(97+i)}) ${shopInv[i].name} (~${Math.floor(shopInv[i].val * 1.5)} gp)`, 4, 14+i, shopInv[i].color);
+                for(let i=0; i<shopInv.length; i++) {
+                    let it = shopInv[i];
+                    let qtyStr = it.quantity > 1 ? ` (x${it.quantity})` : "";
+                    let known = this.player.knownPrices[it.name];
+                    let priceStr = known ? ` [Fixed: ${known} gp]` : ` (~${Math.floor(it.val * 1.5)} gp)`;
+                    this.drawText(`${String.fromCharCode(97+i)}) ${it.name}${qtyStr}${priceStr}`, 4, 14+i, it.color);
+                }
             }
             if (this.shopSubState === 'MAIN' || this.shopSubState === 'SELL_SELECT') {
                 this.drawText("Your Inventory:", 40, 12, COLORS.ui);
-                for(let i=0; i<this.player.inventory.length; i++) this.drawText(`${String.fromCharCode(97+i)}) ${this.player.inventory[i].name}`, 42, 14+i, this.player.inventory[i].color);
+                for(let i=0; i<this.player.inventory.length; i++) {
+                    let it = this.player.inventory[i];
+                    let qtyStr = it.quantity > 1 ? ` (x${it.quantity})` : "";
+                    let known = this.player.knownPrices[it.name];
+                    let priceStr = known ? ` [Fixed: ${Math.floor(known*0.8)} gp]` : ` (~${Math.floor(it.val * 0.5)} gp)`;
+                    this.drawText(`${String.fromCharCode(97+i)}) ${it.name}${qtyStr}${priceStr}`, 42, 14+i, it.color);
+                }
             }
             if (this.shopSubState === 'MAIN') this.drawText("[B]uy  [S]ell  [L]eave", 2, ROWS - 5, COLORS.text);
         }
@@ -1238,7 +1580,8 @@ window.onload = () => {
                         let color = items[i] ? items[i].color : COLORS.wall;
                         this.drawText(`${String.fromCharCode(97+i)}) ${slotNames[i]} : ${itemName}`, 2, 5+i, color);
                     } else {
-                        this.drawText(`${String.fromCharCode(97+i)}) ${items[i].name}`, 2, 5+i, items[i].color);
+                        let qtyStr = (items[i].quantity && items[i].quantity > 1) ? ` (x${items[i].quantity})` : "";
+                        this.drawText(`${String.fromCharCode(97+i)}) ${items[i].name}${qtyStr}`, 2, 5+i, items[i].color);
                     }
                 }
             }
@@ -1255,6 +1598,35 @@ window.onload = () => {
                 let color = this.player.mana >= s.cost ? COLORS.text : COLORS.wall;
                 this.drawText(`${String.fromCharCode(97+i)}) ${s.name} (Mana: ${s.cost})`, 2, 5+i, color);
             }
+            this.drawText("(Press ESC or Space to close)", 2, VIEW_ROWS, COLORS.ui);
+        }
+
+        drawCharacterSheet() {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.95)'; this.ctx.fillRect(0, CELL_SIZE * 2, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
+            this.drawText("--- CHARACTER SHEET ---", 2, 3, COLORS.ui);
+            
+            this.drawText(`Name  : ${this.player.name}`, 2, 5, COLORS.text);
+            this.drawText(`Race  : ${this.player.race}`, 2, 6, COLORS.text);
+            this.drawText(`Class : ${this.player.cls}`, 2, 7, COLORS.text);
+
+            this.drawText(`Level : ${this.player.level}`, 2, 9, COLORS.text);
+            this.drawText(`Exp   : ${this.player.exp} / ${this.player.nextExp}`, 2, 10, COLORS.text);
+            this.drawText(`Gold  : ${this.player.gold}`, 2, 11, COLORS.gold);
+
+            this.drawText(`STR   : ${this.player.stats.STR}`, 25, 5, COLORS.player);
+            this.drawText(`INT   : ${this.player.stats.INT}`, 25, 6, COLORS.player);
+            this.drawText(`WIS   : ${this.player.stats.WIS}`, 25, 7, COLORS.player);
+            this.drawText(`DEX   : ${this.player.stats.DEX}`, 25, 8, COLORS.player);
+            this.drawText(`CON   : ${this.player.stats.CON}`, 25, 9, COLORS.player);
+
+            let totalAC = this.player.ac + (this.player.equip.armor ? this.player.equip.armor.ac : 0) + (this.player.equip.shield ? this.player.equip.shield.ac : 0) + (this.player.equip.ring ? this.player.equip.ring.ac : 0);
+            this.drawText(`Armor Class : ${totalAC}`, 2, 13, COLORS.text);
+            this.drawText(`Max Depth   : ${this.player.maxDepth * 50} ft`, 2, 14, COLORS.text);
+            
+            let wgt = this.getWeight();
+            let maxWgt = this.player.stats.STR * 15;
+            this.drawText(`Burden      : ${wgt} / ${maxWgt} lbs`, 2, 15, wgt > maxWgt ? COLORS.warn : COLORS.text);
+
             this.drawText("(Press ESC or Space to close)", 2, VIEW_ROWS, COLORS.ui);
         }
 
@@ -1294,7 +1666,11 @@ window.onload = () => {
             this.drawText(`L: ${this.player.equip.light ? this.player.equip.light.name : 'No Light'}`, uiX, 21, COLORS.light);
 
             this.drawText("--- INVENTORY ---", uiX, 23, COLORS.ui);
-            for(let i=0; i<Math.min(6, this.player.inventory.length); i++) this.drawText(`${String.fromCharCode(97+i)}) ${this.player.inventory[i].name}`, uiX, 24 + i, this.player.inventory[i].color);
+            for(let i=0; i<Math.min(6, this.player.inventory.length); i++) {
+                let it = this.player.inventory[i];
+                let qtyStr = (it.quantity && it.quantity > 1) ? ` (x${it.quantity})` : "";
+                this.drawText(`${String.fromCharCode(97+i)}) ${it.name}${qtyStr}`, uiX, 24 + i, it.color);
+            }
             if (this.player.inventory.length > 6) this.drawText("...", uiX, 30, COLORS.ui);
             
             let depthText = this.depth === 0 ? "Town Level" : `Depth: ${this.depth * 50} ft`;
