@@ -1856,6 +1856,7 @@ window.onload = () => {
             this.ctx.fillStyle = '#111111';
             this.ctx.fillRect(0, 0, this.canvas.width, CELL_SIZE * TOP_UI_ROWS);
             this.drawText(`Depth: ${this.depth * 50} ft   Turn: ${this.turn}`, 0, 0, COLORS.ui);
+            this.drawText(`Search: ${this.player.searchMode ? 'ON' : 'OFF'}`, 32, 0, this.player.searchMode ? COLORS.warn : COLORS.ui);
 
             const msgBaseY = TOP_UI_ROWS + VIEW_ROWS;
             this.ctx.fillStyle = '#111111';
