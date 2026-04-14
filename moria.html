@@ -73,8 +73,10 @@ window.onload = () => {
     const COLS = 80;         
     const ROWS = 45;         
     const UI_COLS = 22;      
-    const VIEW_COLS = COLS - UI_COLS; 
-    const VIEW_ROWS = ROWS - 2;       
+    const VIEW_COLS = COLS - UI_COLS;
+    const TOP_UI_ROWS = 1;
+    const MESSAGE_ROWS = 2;
+    const VIEW_ROWS = ROWS - TOP_UI_ROWS - MESSAGE_ROWS;
 
     const MAP_COLS = 120;    
     const MAP_ROWS = 60;
@@ -1492,15 +1494,15 @@ window.onload = () => {
                     else if (cell.isShop) color = COLORS.shop;
                     else color = cell.visible || this.depth===0 ? COLORS.floor : COLORS.floorHidden;
 
-                    this.drawChar(char, vx, vy + 2, color); 
+                    this.drawChar(char, vx, vy + TOP_UI_ROWS, color);
                 }
             }
 
-            for (let i of this.items) if (i.x >= camX && i.x < camX + VIEW_COLS && i.y >= camY && i.y < camY + VIEW_ROWS && (this.map[i.y][i.x].visible || this.depth===0)) this.drawChar(i.char, i.x - camX, i.y - camY + 2, i.color);
-            for (let m of this.monsters) if (m.x >= camX && m.x < camX + VIEW_COLS && m.y >= camY && m.y < camY + VIEW_ROWS && (this.map[m.y][m.x].visible || this.depth===0)) this.drawChar(m.char, m.x - camX, m.y - camY + 2, m.color);
+            for (let i of this.items) if (i.x >= camX && i.x < camX + VIEW_COLS && i.y >= camY && i.y < camY + VIEW_ROWS && (this.map[i.y][i.x].visible || this.depth===0)) this.drawChar(i.char, i.x - camX, i.y - camY + TOP_UI_ROWS, i.color);
+            for (let m of this.monsters) if (m.x >= camX && m.x < camX + VIEW_COLS && m.y >= camY && m.y < camY + VIEW_ROWS && (this.map[m.y][m.x].visible || this.depth===0)) this.drawChar(m.char, m.x - camX, m.y - camY + TOP_UI_ROWS, m.color);
 
             let px = this.player.x - camX, py = this.player.y - camY;
-            if(px >= 0 && px < VIEW_COLS && py >= 0 && py < VIEW_ROWS) this.drawChar(this.state !== 'DEAD' ? '@' : '+', px, py + 2, this.state !== 'DEAD' ? COLORS.player : '#f00');
+            if(px >= 0 && px < VIEW_COLS && py >= 0 && py < VIEW_ROWS) this.drawChar(this.state !== 'DEAD' ? '@' : '+', px, py + TOP_UI_ROWS, this.state !== 'DEAD' ? COLORS.player : '#f00');
 
             this.drawUI();
 
@@ -1580,7 +1582,7 @@ window.onload = () => {
         }
 
         drawOverlay(title, items, isEquip = false) {
-            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)'; this.ctx.fillRect(0, CELL_SIZE * 2, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)'; this.ctx.fillRect(0, CELL_SIZE * TOP_UI_ROWS, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
             this.drawText(title, 2, 3, COLORS.ui);
             if (items.length === 0 || (isEquip && !items.some(i => i))) this.drawText("  (Nothing)", 2, 5, COLORS.text);
             else {
@@ -1600,7 +1602,7 @@ window.onload = () => {
         }
 
         drawSpellOverlay() {
-            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)'; this.ctx.fillRect(0, CELL_SIZE * 2, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)'; this.ctx.fillRect(0, CELL_SIZE * TOP_UI_ROWS, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
             this.drawText("--- SPELLBOOK ---", 2, 3, COLORS.ui);
             
             let spells = SPELLBOOK[this.player.magicType] ? SPELLBOOK[this.player.magicType].filter(s => s.lvl <= this.player.level) : [];
@@ -1613,7 +1615,7 @@ window.onload = () => {
         }
 
         drawCharacterSheet() {
-            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.95)'; this.ctx.fillRect(0, CELL_SIZE * 2, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.95)'; this.ctx.fillRect(0, CELL_SIZE * TOP_UI_ROWS, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
             this.drawText("--- CHARACTER SHEET ---", 2, 3, COLORS.ui);
             
             this.drawText(`Name  : ${this.player.name}`, 2, 5, COLORS.text);
@@ -1643,7 +1645,7 @@ window.onload = () => {
 
         drawHelpOverlay() {
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
-            this.ctx.fillRect(0, CELL_SIZE * 2, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
+            this.ctx.fillRect(0, CELL_SIZE * TOP_UI_ROWS, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
 
             this.drawText("--- HELP / CONTROLS ---", 2, 3, COLORS.ui);
             this.drawText("Move: Arrows, Numpad, or h j k l y u b n", 2, 5, COLORS.text);
@@ -1674,9 +1676,23 @@ window.onload = () => {
         drawText(text, x, y, color = COLORS.text) { this.ctx.fillStyle = color; this.ctx.fillText(text, x * CELL_SIZE, y * CELL_SIZE); }
 
         drawUI() {
-            this.ctx.fillStyle = '#111111'; this.ctx.fillRect(0, 0, this.canvas.width, CELL_SIZE * 2);
-            if (this.state === 'SELECT_ITEM' || this.state === 'TARGET_DIR') this.drawText(this.state === 'SELECT_ITEM' ? this.selectMsg : this.targetMsg, 0, 0, COLORS.msg);
-            else { let startIdx = Math.max(0, this.messages.length - 2); for(let i=0; i < 2; i++) if (this.messages[startIdx + i]) this.drawText(this.messages[startIdx + i].text, 0, i, this.messages[startIdx+i].color); }
+            this.ctx.fillStyle = '#111111';
+            this.ctx.fillRect(0, 0, this.canvas.width, CELL_SIZE * TOP_UI_ROWS);
+            this.drawText(`Depth: ${this.depth * 50} ft   Turn: ${this.turn}`, 0, 0, COLORS.ui);
+
+            const msgBaseY = TOP_UI_ROWS + VIEW_ROWS;
+            this.ctx.fillStyle = '#111111';
+            this.ctx.fillRect(0, msgBaseY * CELL_SIZE, VIEW_COLS * CELL_SIZE, CELL_SIZE * MESSAGE_ROWS);
+            if (this.state === 'SELECT_ITEM' || this.state === 'TARGET_DIR') {
+                this.drawText(this.state === 'SELECT_ITEM' ? this.selectMsg : this.targetMsg, 0, msgBaseY, COLORS.msg);
+            } else {
+                let startIdx = Math.max(0, this.messages.length - MESSAGE_ROWS);
+                for (let i = 0; i < MESSAGE_ROWS; i++) {
+                    if (this.messages[startIdx + i]) {
+                        this.drawText(this.messages[startIdx + i].text, 0, msgBaseY + i, this.messages[startIdx + i].color);
+                    }
+                }
+            }
             
             this.ctx.fillStyle = '#0a0a0a'; this.ctx.fillRect(VIEW_COLS * CELL_SIZE, 0, UI_COLS * CELL_SIZE, this.canvas.height);
             const uiX = VIEW_COLS + 1;
