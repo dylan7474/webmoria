@@ -691,8 +691,9 @@ window.onload = () => {
             let trapName = this.getTrapName(t.trapType);
             if (t.trapType === 1) { // Teleport trap
                 this.log(`You triggered a ${trapName}!`, COLORS.trap);
-                this.player.x = RNG.rand(1, MAP_COLS-2);
-                this.player.y = RNG.rand(1, MAP_ROWS-2);
+                let destination = this.findSafeTeleportDestination();
+                this.player.x = destination.x;
+                this.player.y = destination.y;
             } else if (t.trapType === 2) { // Trap Door
                 this.log(`You triggered a ${trapName}!`, COLORS.trap);
                 this.log("You fall through to a deeper level!", COLORS.trap);
@@ -713,6 +714,38 @@ window.onload = () => {
             if (trapType === 1) return "teleport trap";
             if (trapType === 2) return "trap door";
             return "dart trap";
+        }
+
+        isTeleportDestinationValid(x, y) {
+            if (x < 1 || y < 1 || x >= MAP_COLS - 1 || y >= MAP_ROWS - 1) return false;
+
+            let cell = this.map[y][x];
+            if (!cell || cell.solid || cell.isSecretDoor || cell.char === '#' || cell.char === '%' || cell.char === ':') return false;
+            if (this.monsters.some(m => m.x === x && m.y === y)) return false;
+
+            let directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+            return directions.some(([dx, dy]) => {
+                let nx = x + dx, ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= MAP_COLS || ny >= MAP_ROWS) return false;
+                let neighbor = this.map[ny][nx];
+                return neighbor && !neighbor.solid && !neighbor.isSecretDoor && neighbor.char !== '#' && neighbor.char !== '%' && neighbor.char !== ':';
+            });
+        }
+
+        findSafeTeleportDestination() {
+            for (let attempts = 0; attempts < 250; attempts++) {
+                let x = RNG.rand(1, MAP_COLS - 2);
+                let y = RNG.rand(1, MAP_ROWS - 2);
+                if (this.isTeleportDestinationValid(x, y)) return { x, y };
+            }
+
+            for (let y = 1; y < MAP_ROWS - 1; y++) {
+                for (let x = 1; x < MAP_COLS - 1; x++) {
+                    if (this.isTeleportDestinationValid(x, y)) return { x, y };
+                }
+            }
+
+            return { x: this.player.x, y: this.player.y };
         }
 
         executeDirectionAction(dx, dy) {
