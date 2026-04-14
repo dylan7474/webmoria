@@ -57,6 +57,7 @@ Then open <http://localhost:8000/moria.html>.
 - `p`: Pray
 - `R`: Rest
 - `C`: Character sheet
+- `?`: Help/controls overlay (also shows recent messages)
 - `S`: Save and quit
 
 ### Town
