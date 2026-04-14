@@ -59,14 +59,21 @@ Then open <http://localhost:8000/moria.html>.
 - `C`: Character sheet
 - `?`: Help/controls overlay (also shows recent messages)
 - `S`: Save and quit
+- `X`: Export current/browser save to a JSON file
+- `U`: Import save from a JSON file (also updates browser save slot)
 
 ### Town
 
 - Bump keys `1` through `6` in town to enter shops.
 
+### Main menu save options
+
+- `L`: Load from browser save slot
+- `U`: Upload/import save JSON file
+- `D`: Download/export save JSON file
+
 ## Roadmap
 
-- Improve save/load resilience and add versioned save compatibility.
 - Expand monster/item variety and deepen late-game dungeon content.
 - Add optional mobile-friendly controls while preserving keyboard-first gameplay.
 - Add automated smoke tests for core gameplay loops.

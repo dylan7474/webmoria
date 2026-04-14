@@ -56,7 +56,7 @@
         <kbd>w</kbd> Wear/Wield, <kbd>t</kbd> Take off, <kbd>d</kbd> Drop, <kbd>v</kbd> Throw, <kbd>E</kbd> Eat, <kbd>q</kbd> Quaff, <kbd>r</kbd> Read, <kbd>z</kbd> Zap.<br>
         <kbd>m</kbd> Cast Spell, <kbd>p</kbd> Pray, <kbd>i</kbd> Inventory, <kbd>e</kbd> Equipment, <kbd>C</kbd> Character Sheet, <kbd>R</kbd> Rest.<br>
         <kbd>T</kbd> Tunnel, <kbd>s</kbd> Search, <kbd>D</kbd> Disarm Trap, <kbd>c</kbd> Close Door, <kbd>o</kbd> Open, <kbd>l</kbd> Look. Bump <kbd>1</kbd>-<kbd>6</kbd> in Town for Shops.
-        <br><kbd>S</kbd> Save & Quit.
+        <br><kbd>S</kbd> Save & Quit. <kbd>X</kbd> Export Save File. <kbd>U</kbd> Import Save File.
     </div>
 </div>
 
@@ -82,6 +82,9 @@ window.onload = () => {
     const MAP_ROWS = 60;
     const MAX_DEPTH = 50;
     const FOV_RADIUS = 9;
+    const SAVE_STORAGE_KEY = 'moriaSave';
+    const SAVE_FILE_PREFIX = 'webmoria-save';
+    const SAVE_FORMAT_VERSION = 2;
 
     const COLORS = {
         bg: '#000000', fg: '#cccccc',
@@ -209,6 +212,8 @@ window.onload = () => {
             this.handleShopInput = this.handleShopInput.bind(this);
             this.saveGame = this.saveGame.bind(this);
             this.loadGame = this.loadGame.bind(this);
+            this.exportSaveToFile = this.exportSaveToFile.bind(this);
+            this.importSaveFromFile = this.importSaveFromFile.bind(this);
             this.executeBuy = this.executeBuy.bind(this);
             this.executeSell = this.executeSell.bind(this);
 
@@ -267,37 +272,156 @@ window.onload = () => {
             this.draw();
         }
 
-        saveGame() {
-            const saveState = {
-                player: this.player, map: this.map, monsters: this.monsters,
-                items: this.items, depth: this.depth, turn: this.turn,
-                messages: this.messages, shops: this.shops
+        createSavePayload() {
+            return {
+                format: 'webmoria-save',
+                version: SAVE_FORMAT_VERSION,
+                createdAt: new Date().toISOString(),
+                game: {
+                    player: this.player, map: this.map, monsters: this.monsters,
+                    items: this.items, depth: this.depth, turn: this.turn,
+                    messages: this.messages, shops: this.shops
+                }
             };
-            localStorage.setItem('moriaSave', JSON.stringify(saveState));
-            this.state = 'MAIN_MENU';
-            this.log("Game Saved.", COLORS.warn);
+        }
+
+        sanitizeLoadedGame(game) {
+            if (!game || typeof game !== 'object') throw new Error("Invalid save object.");
+            if (!game.player || !Array.isArray(game.map) || !Array.isArray(game.monsters) || !Array.isArray(game.items)) {
+                throw new Error("Save data is missing core game state.");
+            }
+
+            this.player = game.player;
+            this.map = game.map;
+            this.monsters = game.monsters;
+            this.items = game.items;
+            this.depth = Number.isFinite(game.depth) ? game.depth : 0;
+            this.turn = Number.isFinite(game.turn) ? game.turn : 0;
+            this.messages = Array.isArray(game.messages) ? game.messages : [];
+            this.shops = Array.isArray(game.shops) ? game.shops : Array(6).fill(0).map((_, i) => this.generateShopInventory(i));
+
+            if (!this.player.inventory) this.player.inventory = [];
+            if (!this.player.equip) this.player.equip = { weapon: null, armor: null, shield: null, light: null, ring: null };
+            if (!this.player.knownPrices) this.player.knownPrices = {};
+        }
+
+        migrateSavePayload(raw) {
+            if (!raw || typeof raw !== 'object') throw new Error("Save file is empty or malformed.");
+
+            if (raw.format === 'webmoria-save') {
+                const version = Number.isFinite(raw.version) ? raw.version : 1;
+                if (version > SAVE_FORMAT_VERSION) {
+                    throw new Error(`Save version ${version} is newer than this game supports (${SAVE_FORMAT_VERSION}).`);
+                }
+                if (!raw.game) throw new Error("Versioned save is missing game data.");
+                return raw.game;
+            }
+
+            if (raw.player && raw.map && raw.monsters && raw.items) {
+                return raw; // Legacy unversioned save support.
+            }
+
+            throw new Error("Unknown save format.");
+        }
+
+        loadFromPayload(payload) {
+            const game = this.migrateSavePayload(payload);
+            this.sanitizeLoadedGame(game);
+            this.state = 'PLAY';
+            this.log("Game loaded successfully.", COLORS.player);
+            this.updateFOV();
+            this.draw();
+        }
+
+        saveGame() {
+            try {
+                const payload = this.createSavePayload();
+                localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify(payload));
+                this.state = 'MAIN_MENU';
+                this.log("Game saved to browser storage.", COLORS.warn);
+            } catch (err) {
+                this.log(`Save failed: ${err.message}`, COLORS.warn);
+            }
             this.draw();
         }
 
         loadGame() {
-            const saveStr = localStorage.getItem('moriaSave');
-            if (saveStr) {
-                const saveState = JSON.parse(saveStr);
-                this.player = saveState.player; this.map = saveState.map;
-                this.monsters = saveState.monsters; this.items = saveState.items;
-                this.depth = saveState.depth; this.turn = saveState.turn;
-                this.messages = saveState.messages; this.shops = saveState.shops;
-                
-                if (!this.player.knownPrices) this.player.knownPrices = {};
-
-                this.state = 'PLAY';
-                this.log("Game loaded successfully.", COLORS.player);
-                this.updateFOV();
-                this.draw();
-            } else {
+            const saveStr = localStorage.getItem(SAVE_STORAGE_KEY);
+            if (!saveStr) {
                 this.log("No save game found.", COLORS.warn);
                 if (this.state === 'MAIN_MENU') this.draw();
+                return;
             }
+
+            try {
+                const payload = JSON.parse(saveStr);
+                this.loadFromPayload(payload);
+            } catch (err) {
+                this.log(`Load failed: ${err.message}`, COLORS.warn);
+                if (this.state === 'MAIN_MENU') this.draw();
+            }
+        }
+
+        exportSaveToFile() {
+            try {
+                let payload = null;
+                if (this.player) payload = this.createSavePayload();
+                else {
+                    const existing = localStorage.getItem(SAVE_STORAGE_KEY);
+                    if (existing) payload = JSON.parse(existing);
+                }
+                if (!payload) throw new Error("No save available to export.");
+
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const fileName = `${SAVE_FILE_PREFIX}-${stamp}.json`;
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                this.log("Save exported to file.", COLORS.player);
+            } catch (err) {
+                this.log(`Export failed: ${err.message}`, COLORS.warn);
+            }
+            this.draw();
+        }
+
+        importSaveFromFile() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json,application/json';
+            input.style.display = 'none';
+            input.onchange = () => {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const payload = JSON.parse(reader.result);
+                        this.loadFromPayload(payload);
+                        localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify(payload));
+                        this.log("Imported save and updated browser save slot.", COLORS.player);
+                        this.draw();
+                    } catch (err) {
+                        this.log(`Import failed: ${err.message}`, COLORS.warn);
+                        if (this.state === 'MAIN_MENU') this.draw();
+                    } finally {
+                        document.body.removeChild(input);
+                    }
+                };
+                reader.onerror = () => {
+                    this.log("Import failed: could not read file.", COLORS.warn);
+                    if (this.state === 'MAIN_MENU') this.draw();
+                    document.body.removeChild(input);
+                };
+                reader.readAsText(file);
+            };
+            document.body.appendChild(input);
+            input.click();
         }
 
         getWeight() {
@@ -370,6 +494,8 @@ window.onload = () => {
                 if (this.state === 'MAIN_MENU') {
                     if (e.key.toLowerCase() === 'n') { this.state = 'CHAR_RACE'; this.draw(); }
                     if (e.key.toLowerCase() === 'l') { this.loadGame(); }
+                    if (e.key.toLowerCase() === 'u') { this.importSaveFromFile(); }
+                    if (e.key.toLowerCase() === 'd') { this.exportSaveToFile(); }
                     return;
                 }
                 if (this.state === 'START') { this.state = 'MAIN_MENU'; this.draw(); return; }
@@ -506,6 +632,8 @@ window.onload = () => {
                             e.preventDefault(); return;
                         
                         case 'S': this.saveGame(); e.preventDefault(); return;
+                        case 'U': this.importSaveFromFile(); e.preventDefault(); return;
+                        case 'X': this.exportSaveToFile(); e.preventDefault(); return;
                         case 'R': this.startResting(); e.preventDefault(); return;
                         
                         case 's': this.searchSurroundings(); acted = true; break;
@@ -598,7 +726,7 @@ window.onload = () => {
             if (this.player.hp <= 0 && this.state !== 'DEAD') {
                 this.state = 'DEAD';
                 this.player.hp = 0;
-                localStorage.removeItem('moriaSave');
+                localStorage.removeItem(SAVE_STORAGE_KEY);
                 this.log("You die.", '#f00');
             }
             if (doDraw) this.draw();
@@ -1408,7 +1536,7 @@ window.onload = () => {
                     
                     if (m.isBoss) {
                         this.state = 'WIN';
-                        localStorage.removeItem('moriaSave');
+                        localStorage.removeItem(SAVE_STORAGE_KEY);
                         this.log("*** CONGRATULATIONS *** You have defeated the Balrog!", '#00ff00');
                         this.log("Press Enter to play again.", '#00ff00');
                     }
@@ -1553,9 +1681,11 @@ window.onload = () => {
             
             this.drawText("[N]ew Game", 34, 20, COLORS.text);
             this.drawText("[L]oad Game", 34, 22, COLORS.text);
+            this.drawText("[U]pload Save File", 34, 24, COLORS.text);
+            this.drawText("[D]ownload Save File", 34, 26, COLORS.text);
             
             if (this.messages && this.messages.length > 0) {
-                this.drawText(this.messages[this.messages.length - 1].text, 25, 26, this.messages[this.messages.length - 1].color);
+                this.drawText(this.messages[this.messages.length - 1].text, 25, 30, this.messages[this.messages.length - 1].color);
             }
         }
 
@@ -1690,7 +1820,7 @@ window.onload = () => {
             this.drawText("Wear: w   Take off: t   Drop: d   Throw: v", 2, 11, COLORS.text);
             this.drawText("Eat: E   Quaff: q   Read: r   Zap: z", 2, 12, COLORS.text);
             this.drawText("Magic: m (mage) / p (priest)", 2, 13, COLORS.text);
-            this.drawText("Rest: R   Save: S   Help: ?", 2, 14, COLORS.text);
+            this.drawText("Rest: R   Save: S   Export: X   Import: U", 2, 14, COLORS.text);
 
             this.drawText("--- RECENT MESSAGES ---", 2, 17, COLORS.msg);
             let recent = this.messages.slice(-6);
