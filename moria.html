@@ -55,8 +55,8 @@
         <kbd>Arrows</kbd>/<kbd>Numpad</kbd>/<kbd>vi-keys</kbd>: Move/Attack. <kbd>.</kbd> or <kbd>5</kbd>: Wait. <kbd>&lt;</kbd> <kbd>&gt;</kbd>: Stairs.<br>
         <kbd>w</kbd> Wear/Wield, <kbd>t</kbd> Take off, <kbd>d</kbd> Drop, <kbd>v</kbd> Throw, <kbd>E</kbd> Eat, <kbd>q</kbd> Quaff, <kbd>r</kbd> Read, <kbd>z</kbd> Zap.<br>
         <kbd>m</kbd> Cast Spell, <kbd>p</kbd> Pray, <kbd>i</kbd> Inventory, <kbd>e</kbd> Equipment, <kbd>C</kbd> Character Sheet, <kbd>R</kbd> Rest.<br>
-        <kbd>T</kbd> Tunnel, <kbd>s</kbd> Search, <kbd>D</kbd> Disarm Trap, <kbd>c</kbd> Close Door, <kbd>o</kbd> Open, <kbd>l</kbd> Look. Bump <kbd>1</kbd>-<kbd>6</kbd> in Town for Shops.
-        <br><kbd>S</kbd> Save & Quit. <kbd>X</kbd> Export Save File. <kbd>U</kbd> Import Save File.
+        <kbd>T</kbd> Tunnel, <kbd>s</kbd> Search once, <kbd>S</kbd> Toggle search mode, <kbd>D</kbd> Disarm Trap, <kbd>c</kbd> Close Door, <kbd>o</kbd> Open, <kbd>l</kbd> Look. Bump <kbd>1</kbd>-<kbd>6</kbd> in Town for Shops.
+        <br><kbd>Ctrl</kbd>+<kbd>S</kbd> Save & Quit. <kbd>X</kbd> Export Save File. <kbd>U</kbd> Import Save File.
     </div>
 </div>
 
@@ -255,6 +255,7 @@ window.onload = () => {
                 mana: maxMana, maxMana: maxMana,
                 gold: 150, food: 1000, maxFood: 1500,
                 poison: 0, confused: 0,
+                searchMode: false,
                 maxDepth: 0, recallTurns: 0,
                 ac: 10 + Math.floor((dex - 10)/3),
                 stats: { STR: str, INT: int, WIS: wis, DEX: dex, CON: con },
@@ -303,6 +304,7 @@ window.onload = () => {
             if (!this.player.inventory) this.player.inventory = [];
             if (!this.player.equip) this.player.equip = { weapon: null, armor: null, shield: null, light: null, ring: null };
             if (!this.player.knownPrices) this.player.knownPrices = {};
+            if (typeof this.player.searchMode !== 'boolean') this.player.searchMode = false;
         }
 
         migrateSavePayload(raw) {
@@ -598,6 +600,12 @@ window.onload = () => {
 
                 let dx = 0, dy = 0, acted = false;
                 let dir = this.getDirectionFromKey(e.key);
+
+                if (e.ctrlKey && e.key.toLowerCase() === 's') {
+                    this.saveGame();
+                    e.preventDefault();
+                    return;
+                }
                 
                 if (this.player && this.player.confused > 0 && dir) {
                     let dirs = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0},{dx:-1,dy:-1},{dx:1,dy:-1},{dx:-1,dy:1},{dx:1,dy:1}];
@@ -631,11 +639,16 @@ window.onload = () => {
                             else this.log("You cannot pray."); 
                             e.preventDefault(); return;
                         
-                        case 'S': this.saveGame(); e.preventDefault(); return;
                         case 'U': this.importSaveFromFile(); e.preventDefault(); return;
                         case 'X': this.exportSaveToFile(); e.preventDefault(); return;
                         case 'R': this.startResting(); e.preventDefault(); return;
                         
+                        case 'S':
+                            this.player.searchMode = !this.player.searchMode;
+                            this.log(this.player.searchMode ? "You enter search mode." : "You leave search mode.", COLORS.ui);
+                            this.draw();
+                            e.preventDefault();
+                            return;
                         case 's': this.searchSurroundings(); acted = true; break;
                         case 'T': this.promptDirection('TUNNEL', 'Tunnel in which direction?'); e.preventDefault(); return;
                         case 'D': this.promptDirection('DISARM', 'Disarm in which direction?'); e.preventDefault(); return;
@@ -681,6 +694,7 @@ window.onload = () => {
         advanceTurn(doDraw = true) {
             this.turn++;
             this.updateHunger();
+            if (this.player.searchMode) this.searchSurroundings(false);
             
             if (this.player.poison > 0) {
                 this.player.poison--;
@@ -788,8 +802,8 @@ window.onload = () => {
             this.advanceTurn();
         }
 
-        searchSurroundings() {
-            this.log("You search your surroundings.");
+        searchSurroundings(verbose = true) {
+            if (verbose) this.log("You search your surroundings.");
             let found = false;
             for (let dy = -1; dy <= 1; dy++) {
                 for (let dx = -1; dx <= 1; dx++) {
@@ -807,7 +821,7 @@ window.onload = () => {
                     }
                 }
             }
-            if(!found) this.log("You found nothing.", COLORS.ui);
+            if (!found && verbose) this.log("You found nothing.", COLORS.ui);
         }
 
         promptDirection(action, msg) {
@@ -1335,11 +1349,11 @@ window.onload = () => {
 
         updateHunger() {
             if (this.depth === 0) return; 
-            this.player.food--;
+            this.player.food -= this.player.searchMode ? 2 : 1;
+            if (this.player.food < 0) this.player.food = 0;
             if (this.player.food === 200) this.log("You are getting hungry.", COLORS.warn);
             if (this.player.food === 50) this.log("You are starving!", COLORS.warn);
             if (this.player.food <= 0) {
-                this.player.food = 0;
                 if (this.turn % 3 === 0) {
                     this.player.hp--;
                     this.log("You take damage from starvation!", '#ff0000');
@@ -1813,14 +1827,14 @@ window.onload = () => {
             this.drawText("--- HELP / CONTROLS ---", 2, 3, COLORS.ui);
             this.drawText("Move: Arrows, Numpad, or h j k l y u b n", 2, 5, COLORS.text);
             this.drawText("Wait: . or 5      Stairs: < >", 2, 6, COLORS.text);
-            this.drawText("Open/Close: o / c   Search: s   Look: l", 2, 7, COLORS.text);
+            this.drawText("Open/Close: o / c   Search: s   Search mode: S   Look: l", 2, 7, COLORS.text);
             this.drawText("Tunnel: T   Disarm: D   Bash: B", 2, 8, COLORS.text);
 
             this.drawText("Inventory: i   Equipment: e   Character: C", 2, 10, COLORS.text);
             this.drawText("Wear: w   Take off: t   Drop: d   Throw: v", 2, 11, COLORS.text);
             this.drawText("Eat: E   Quaff: q   Read: r   Zap: z", 2, 12, COLORS.text);
             this.drawText("Magic: m (mage) / p (priest)", 2, 13, COLORS.text);
-            this.drawText("Rest: R   Save: S   Export: X   Import: U", 2, 14, COLORS.text);
+            this.drawText("Rest: R   Save+Quit: Ctrl+S   Export: X   Import: U", 2, 14, COLORS.text);
 
             this.drawText("--- RECENT MESSAGES ---", 2, 17, COLORS.msg);
             let recent = this.messages.slice(-6);
@@ -1865,6 +1879,7 @@ window.onload = () => {
             let statusStr = "";
             if (this.player.poison > 0) statusStr += "POISON ";
             if (this.player.confused > 0) statusStr += "CONFUSED";
+            if (this.player.searchMode) statusStr += (statusStr ? " " : "") + "SEARCH";
             this.drawText(statusStr, uiX, 3, COLORS.warn);
 
             this.drawText(`STR: ${this.player.stats.STR}`, uiX, 5, COLORS.text); this.drawText(`DEX: ${this.player.stats.DEX}`, uiX, 6, COLORS.text); this.drawText(`CON: ${this.player.stats.CON}`, uiX, 7, COLORS.text);
