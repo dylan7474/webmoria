@@ -402,8 +402,8 @@ window.onload = () => {
 
                 if (this.state === 'SHOP') { this.handleShopInput(e.key); e.preventDefault(); return; }
 
-                if (this.state === 'INVENTORY' || this.state === 'EQUIPMENT' || this.state === 'CHARACTER_SHEET') {
-                    if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') { this.state = 'PLAY'; this.draw(); }
+                if (this.state === 'INVENTORY' || this.state === 'EQUIPMENT' || this.state === 'CHARACTER_SHEET' || this.state === 'HELP') {
+                    if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter' || e.key === '?') { this.state = 'PLAY'; this.draw(); }
                     e.preventDefault(); return;
                 }
 
@@ -483,6 +483,7 @@ window.onload = () => {
                         case 'i': this.state = 'INVENTORY'; this.draw(); e.preventDefault(); return;
                         case 'e': this.state = 'EQUIPMENT'; this.draw(); e.preventDefault(); return;
                         case 'C': this.state = 'CHARACTER_SHEET'; this.draw(); e.preventDefault(); return;
+                        case '?': this.state = 'HELP'; this.draw(); e.preventDefault(); return;
                         
                         case 'w': this.promptSelectItem('WEAR', 'Wear/Wield which item?'); e.preventDefault(); return;
                         case 't': this.promptSelectItem('TAKEOFF', 'Take off which item?'); e.preventDefault(); return;
@@ -685,12 +686,14 @@ window.onload = () => {
 
         triggerTrap(tx, ty) {
             let t = this.map[ty][tx];
+            let trapName = this.getTrapName(t.trapType);
             if (t.trapType === 1) { // Teleport trap
-                this.log("You hit a teleport trap!", COLORS.trap);
+                this.log(`You triggered a ${trapName}!`, COLORS.trap);
                 this.player.x = RNG.rand(1, MAP_COLS-2);
                 this.player.y = RNG.rand(1, MAP_ROWS-2);
             } else if (t.trapType === 2) { // Trap Door
-                this.log("You fell through a trap door!", COLORS.trap);
+                this.log(`You triggered a ${trapName}!`, COLORS.trap);
+                this.log("You fall through to a deeper level!", COLORS.trap);
                 this.player.hp -= RNG.roll(2, 6);
                 if (this.player.hp <= 0) { this.state = 'DEAD'; this.player.hp = 0; this.log("You die.", '#f00'); return; }
                 this.depth++;
@@ -698,9 +701,16 @@ window.onload = () => {
             } else { // Dart Trap
                 let dmg = RNG.roll(1, 6) + Math.floor(this.depth / 2);
                 this.player.hp -= dmg;
+                this.log(`You triggered a ${trapName}!`, COLORS.trap);
                 this.log(`A dart strikes you for ${dmg} damage!`, COLORS.trap);
                 if (this.player.hp <= 0) { this.state = 'DEAD'; this.player.hp = 0; this.log("You die.", '#f00'); }
             }
+        }
+
+        getTrapName(trapType) {
+            if (trapType === 1) return "teleport trap";
+            if (trapType === 2) return "trap door";
+            return "dart trap";
         }
 
         executeDirectionAction(dx, dy) {
@@ -734,10 +744,10 @@ window.onload = () => {
                 if (cell.isTrap) {
                     let chance = 30 + (this.player.stats.DEX - 10) * 5;
                     if (RNG.chance(chance)) {
-                        this.log("You successfully disarmed the trap.", COLORS.player);
+                        this.log(`You disarmed a ${this.getTrapName(cell.trapType)}.`, COLORS.player);
                         cell.isTrap = false; cell.char = '.'; this.player.exp += 5; 
                     } else {
-                        this.log("You failed to disarm the trap and triggered it!", COLORS.warn);
+                        this.log(`You fail to disarm the ${this.getTrapName(cell.trapType)}!`, COLORS.warn);
                         cell.trapHidden = false; this.triggerTrap(tx, ty);
                     }
                 } else this.log("There is nothing to disarm there.");
@@ -1498,6 +1508,7 @@ window.onload = () => {
             else if (this.state === 'INVENTORY' || (this.state === 'SELECT_ITEM' && this.selectAction !== 'TAKEOFF')) this.drawOverlay("--- INVENTORY ---", this.player.inventory, false);
             else if (this.state === 'EQUIPMENT' || (this.state === 'SELECT_ITEM' && this.selectAction === 'TAKEOFF')) this.drawOverlay("--- EQUIPMENT ---", [this.player.equip.weapon, this.player.equip.armor, this.player.equip.shield, this.player.equip.light, this.player.equip.ring], true);
             else if (this.state === 'SPELL_MENU') this.drawSpellOverlay();
+            else if (this.state === 'HELP') this.drawHelpOverlay();
         }
 
         drawMainMenu() {
@@ -1628,6 +1639,35 @@ window.onload = () => {
             this.drawText(`Burden      : ${wgt} / ${maxWgt} lbs`, 2, 15, wgt > maxWgt ? COLORS.warn : COLORS.text);
 
             this.drawText("(Press ESC or Space to close)", 2, VIEW_ROWS, COLORS.ui);
+        }
+
+        drawHelpOverlay() {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
+            this.ctx.fillRect(0, CELL_SIZE * 2, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
+
+            this.drawText("--- HELP / CONTROLS ---", 2, 3, COLORS.ui);
+            this.drawText("Move: Arrows, Numpad, or h j k l y u b n", 2, 5, COLORS.text);
+            this.drawText("Wait: . or 5      Stairs: < >", 2, 6, COLORS.text);
+            this.drawText("Open/Close: o / c   Search: s   Look: l", 2, 7, COLORS.text);
+            this.drawText("Tunnel: T   Disarm: D   Bash: B", 2, 8, COLORS.text);
+
+            this.drawText("Inventory: i   Equipment: e   Character: C", 2, 10, COLORS.text);
+            this.drawText("Wear: w   Take off: t   Drop: d   Throw: v", 2, 11, COLORS.text);
+            this.drawText("Eat: E   Quaff: q   Read: r   Zap: z", 2, 12, COLORS.text);
+            this.drawText("Magic: m (mage) / p (priest)", 2, 13, COLORS.text);
+            this.drawText("Rest: R   Save: S   Help: ?", 2, 14, COLORS.text);
+
+            this.drawText("--- RECENT MESSAGES ---", 2, 17, COLORS.msg);
+            let recent = this.messages.slice(-6);
+            if (recent.length === 0) {
+                this.drawText("(No messages yet.)", 2, 19, COLORS.ui);
+            } else {
+                for (let i = 0; i < recent.length; i++) {
+                    this.drawText(`- ${recent[i].text}`, 2, 19 + i, recent[i].color);
+                }
+            }
+
+            this.drawText("(Press ESC, Space, Enter, or ? to close)", 2, VIEW_ROWS, COLORS.ui);
         }
 
         drawChar(char, x, y, color) { this.ctx.fillStyle = color; this.ctx.fillText(char, x * CELL_SIZE, y * CELL_SIZE); }
