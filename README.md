@@ -36,7 +36,8 @@ Then open <http://localhost:8000/moria.html>.
 - `.` or `5`: Wait one turn
 - `<` / `>`: Use stairs
 - `o` / `c`: Open / close door
-- `s`: Search
+- `s`: Search once
+- `S`: Toggle persistent search mode (uses extra food per turn while enabled)
 - `l`: Look
 - `T`: Tunnel
 - `D`: Disarm trap
@@ -58,7 +59,7 @@ Then open <http://localhost:8000/moria.html>.
 - `R`: Rest
 - `C`: Character sheet
 - `?`: Help/controls overlay (also shows recent messages)
-- `S`: Save and quit
+- `Ctrl+S`: Save and quit
 - `X`: Export current/browser save to a JSON file
 - `U`: Import save from a JSON file (also updates browser save slot)
 
