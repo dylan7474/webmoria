@@ -72,6 +72,7 @@ Then open `http://localhost:3016/index.html` (or `/`).
 - `a`: Aim and fire wand
 - `m`: Cast spell
 - `p`: Pray
+- `G`: Gain/Study a new spell or prayer (requires available study points and a carried spellbook)
 - `R`: Rest
 - `C`: Character sheet
 - `?`: Help/controls overlay (also shows recent messages)
@@ -94,3 +95,9 @@ Then open `http://localhost:3016/index.html` (or `/`).
 - Expand monster/item variety and deepen late-game dungeon content.
 - Add optional mobile-friendly controls while preserving keyboard-first gameplay.
 - Add automated smoke tests for core gameplay loops.
+
+## Recent gameplay updates
+
+- Added physical mage/priest spell books (8 total tiers) that can be bought in town or found in the dungeon.
+- Added Umoria-style study flow: magical classes gain study points on level-up and use `G` to learn from books currently in inventory.
+- Added stat/level-driven casting failure chance, slower mana regeneration, and one-time EXP bonuses for first successful casts.
