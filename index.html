@@ -314,6 +314,7 @@ window.onload = () => {
             this.ctx.textBaseline = 'top';
             this.messages = [];
             this.isResting = false;
+            this.animationInProgress = false;
 
             this.advanceTurn = this.advanceTurn.bind(this);
             this.updateHunger = this.updateHunger.bind(this);
@@ -686,6 +687,10 @@ window.onload = () => {
 
         bindEvents() {
             window.addEventListener('keydown', (e) => {
+                if (this.animationInProgress) {
+                    e.preventDefault();
+                    return;
+                }
                 if (this.isResting) {
                     this.isResting = false;
                     clearInterval(this.restInterval);
@@ -908,6 +913,69 @@ window.onload = () => {
             });
         }
 
+        sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        getCameraOrigin() {
+            if (!this.player) return { camX: 0, camY: 0 };
+            let camX = Math.max(0, Math.min(MAP_COLS - VIEW_COLS, this.player.x - Math.floor(VIEW_COLS / 2)));
+            let camY = Math.max(0, Math.min(MAP_ROWS - VIEW_ROWS, this.player.y - Math.floor(VIEW_ROWS / 2)));
+            return { camX, camY };
+        }
+
+        traceProjectile(dx, dy, maxRange) {
+            let cx = this.player.x;
+            let cy = this.player.y;
+            let lastX = cx;
+            let lastY = cy;
+            let path = [];
+            let hitMonsterIndex = -1;
+            let blockedByWall = false;
+
+            for (let r = 0; r < maxRange; r++) {
+                cx += dx;
+                cy += dy;
+                if (cx < 0 || cy < 0 || cx >= MAP_COLS || cy >= MAP_ROWS) {
+                    break;
+                }
+                let cell = this.map[cy][cx];
+                if (cell.solid && !cell.isSecretDoor) {
+                    blockedByWall = true;
+                    cx = lastX;
+                    cy = lastY;
+                    break;
+                }
+                path.push({ x: cx, y: cy });
+                lastX = cx;
+                lastY = cy;
+                hitMonsterIndex = this.monsters.findIndex(m => m.x === cx && m.y === cy);
+                if (hitMonsterIndex !== -1) break;
+            }
+
+            return { path, hitMonsterIndex, endX: cx, endY: cy, blockedByWall };
+        }
+
+        async animateProjectile(path, char = '*', color = COLORS.wand) {
+            if (!path || path.length === 0) return;
+            this.animationInProgress = true;
+            try {
+                for (const step of path) {
+                    this.draw();
+                    const { camX, camY } = this.getCameraOrigin();
+                    const vx = step.x - camX;
+                    const vy = step.y - camY;
+                    if (vx >= 0 && vx < VIEW_COLS && vy >= 0 && vy < VIEW_ROWS) {
+                        this.drawChar(char, vx + UI_COLS, vy + TOP_UI_ROWS, color);
+                    }
+                    await this.sleep(18);
+                }
+            } finally {
+                this.animationInProgress = false;
+                this.draw();
+            }
+        }
+
         getMoveDirectionFromKey(key) {
             switch(key) {
                 case 'ArrowUp': return {dx: 0, dy: -1};
@@ -1015,7 +1083,7 @@ window.onload = () => {
             this.state = 'STUDY_MENU'; this.draw();
         }
 
-        castSpell(spell, dx, dy) {
+        async castSpell(spell, dx, dy) {
             this.state = 'PLAY';
             this.log(`You cast ${spell.name}.`, COLORS.msg);
 
@@ -1062,13 +1130,15 @@ window.onload = () => {
                 }
                 this.log(seen > 0 ? "You sense evil minds nearby." : "You sense no evil nearby.");
             } else if (spell.type === 'bolt' || spell.type === 'ball') {
-                let cx = this.player.x, cy = this.player.y;
-                for (let r=0; r < FOV_RADIUS; r++) {
-                    cx += dx; cy += dy;
-                    if (this.map[cy][cx].solid && !this.map[cy][cx].isSecretDoor) {
-                        this.log("The spell fizzles against the wall."); break;
-                    }
-                    let mId = this.monsters.findIndex(m => m.x === cx && m.y === cy);
+                const trace = this.traceProjectile(dx, dy, FOV_RADIUS);
+                await this.animateProjectile(trace.path, '*', COLORS.wand);
+
+                if (trace.blockedByWall) {
+                    this.log("The spell fizzles against the wall.");
+                }
+
+                for (const step of trace.path) {
+                    let mId = this.monsters.findIndex(m => m.x === step.x && m.y === step.y);
                     if (mId !== -1) {
                         let m = this.monsters[mId];
                         m.currentHp -= spell.dmg;
@@ -1077,7 +1147,7 @@ window.onload = () => {
                             this.log(`You have slain the ${m.name}!`);
                             this.player.exp += m.exp; this.monsters.splice(mId, 1);
                         }
-                        if (spell.type !== 'ball') break; 
+                        if (spell.type !== 'ball') break;
                     }
                 }
             }
@@ -1193,7 +1263,7 @@ window.onload = () => {
             return Math.min(65, 45 + Math.floor(this.depth / 4));
         }
 
-        executeDirectionAction(dx, dy) {
+        async executeDirectionAction(dx, dy) {
             let tx = this.player.x + dx, ty = this.player.y + dy;
             this.state = 'PLAY';
 
@@ -1293,6 +1363,17 @@ window.onload = () => {
                 this.advanceTurn(); return;
             } 
 
+            if (this.targetAction === 'SPELL_DIR') {
+                if (this.selectedSpell) {
+                    const spell = this.selectedSpell;
+                    this.selectedSpell = null;
+                    await this.castSpell(spell, dx, dy);
+                } else {
+                    this.draw();
+                }
+                return;
+            }
+
             if (this.targetAction === 'THROW_DIR') {
                 let item = this.player.inventory[this.selectedItemIdx];
                 let thrownItem = {...item, quantity: 1};
@@ -1300,19 +1381,11 @@ window.onload = () => {
                 if (item.quantity > 1) item.quantity--;
                 else this.player.inventory.splice(this.selectedItemIdx, 1);
                 
-                let cx = this.player.x, cy = this.player.y;
-                let hitMonster = null;
-                for (let r=0; r<10; r++) {
-                    cx += dx; cy += dy;
-                    if (this.map[cy][cx].solid && !this.map[cy][cx].isSecretDoor) {
-                        cx -= dx; cy -= dy; 
-                        break;
-                    }
-                    let mId = this.monsters.findIndex(m => m.x === cx && m.y === cy);
-                    if (mId !== -1) {
-                        hitMonster = this.monsters[mId]; break;
-                    }
-                }
+                const trace = this.traceProjectile(dx, dy, 10);
+                await this.animateProjectile(trace.path, thrownItem.char || '*', thrownItem.color || COLORS.weapon);
+
+                let cx = trace.endX, cy = trace.endY;
+                let hitMonster = trace.hitMonsterIndex !== -1 ? this.monsters[trace.hitMonsterIndex] : null;
                 if (hitMonster) {
                     let dmg = RNG.roll(1, 4) + Math.floor((this.player.stats.STR - 10) / 2);
                     if (thrownItem.type === 'weapon') dmg += thrownItem.atk;
@@ -1348,22 +1421,18 @@ window.onload = () => {
                     else this.player.inventory.splice(this.selectedItemIdx, 1);
                 }
 
-                let cx = this.player.x, cy = this.player.y;
-                for (let r=0; r < FOV_RADIUS; r++) {
-                    cx += dx; cy += dy;
-                    if (this.map[cy][cx].solid && !this.map[cy][cx].isSecretDoor) {
-                        this.log("The bolt fizzles against the wall."); break;
-                    }
-                    let mId = this.monsters.findIndex(m => m.x === cx && m.y === cy);
-                    if (mId !== -1) {
-                        let m = this.monsters[mId];
-                        m.currentHp -= item.dmg;
-                        this.log(`The bolt hits the ${m.name} for ${item.dmg}!`, COLORS.wand);
-                        if (m.currentHp <= 0) {
-                            this.log(`You have slain the ${m.name}!`);
-                            this.player.exp += m.exp; this.monsters.splice(mId, 1);
-                        }
-                        break;
+                const trace = this.traceProjectile(dx, dy, FOV_RADIUS);
+                await this.animateProjectile(trace.path, '*', COLORS.wand);
+                if (trace.blockedByWall) {
+                    this.log("The bolt fizzles against the wall.");
+                }
+                if (trace.hitMonsterIndex !== -1) {
+                    let m = this.monsters[trace.hitMonsterIndex];
+                    m.currentHp -= item.dmg;
+                    this.log(`The bolt hits the ${m.name} for ${item.dmg}!`, COLORS.wand);
+                    if (m.currentHp <= 0) {
+                        this.log(`You have slain the ${m.name}!`);
+                        this.player.exp += m.exp; this.monsters.splice(trace.hitMonsterIndex, 1);
                     }
                 }
                 this.advanceTurn(); return;
