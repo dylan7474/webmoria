@@ -1318,6 +1318,13 @@ window.onload = () => {
             return Math.min(65, 45 + Math.floor(this.depth / 4));
         }
 
+        getTrapPlacementChance() {
+            if (this.depth <= 1) return 0.6;
+            if (this.depth <= 3) return 1.2;
+            if (this.depth <= 6) return 2.0;
+            return Math.min(5, 2.0 + (this.depth - 6) * 0.2);
+        }
+
         async executeDirectionAction(dx, dy) {
             let tx = this.player.x + dx, ty = this.player.y + dy;
             this.state = 'PLAY';
@@ -1869,7 +1876,7 @@ window.onload = () => {
                         if (((N && S && !E && !W) || (!N && !S && E && W)) && RNG.chance(20)) {
                             this.map[y][x] = { char: '+', explored: false, visible: false, solid: true, opaque: true };
                             if (RNG.chance(30)) { this.map[y][x].char = '#'; this.map[y][x].isSecretDoor = true; } // Secret door
-                        } else if (RNG.chance(3)) { // Traps
+                        } else if (RNG.chance(this.getTrapPlacementChance())) { // Traps (scaled by depth)
                             this.map[y][x].isTrap = true;
                             this.map[y][x].trapHidden = true;
                             this.map[y][x].trapType = this.getTrapTypeForDepth();
