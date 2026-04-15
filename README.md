@@ -48,7 +48,7 @@ Then open `http://localhost:3016/index.html` (or `/`).
 
 ### Movement and world interaction
 
-- `Arrow keys` / `Numpad` / `vi` keys (`h j k l y u b n`): Move/attack
+- `Arrow keys`: Move/attack
 - `.` or `5`: Wait one turn
 - `<` / `>`: Use stairs
 - `o` / `c`: Open / close door
@@ -65,11 +65,11 @@ Then open `http://localhost:3016/index.html` (or `/`).
 - `w`: Wear/wield
 - `t`: Take off
 - `d`: Drop
-- `v`: Throw
+- `f`: Throw
 - `E`: Eat
 - `q`: Quaff potion
 - `r`: Read scroll
-- `z`: Zap wand
+- `a`: Aim and fire wand
 - `m`: Cast spell
 - `p`: Pray
 - `R`: Rest

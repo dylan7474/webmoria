@@ -52,8 +52,8 @@
 <div id="game-container">
     <canvas id="gameCanvas" width="1280" height="720"></canvas>
     <div id="instructions">
-        <kbd>Arrows</kbd>/<kbd>Numpad</kbd>/<kbd>vi-keys</kbd>: Move/Attack. <kbd>.</kbd> or <kbd>5</kbd>: Wait. <kbd>&lt;</kbd> <kbd>&gt;</kbd>: Stairs.<br>
-        <kbd>w</kbd> Wear/Wield, <kbd>t</kbd> Take off, <kbd>d</kbd> Drop, <kbd>v</kbd> Throw, <kbd>E</kbd> Eat, <kbd>q</kbd> Quaff, <kbd>r</kbd> Read, <kbd>z</kbd> Zap.<br>
+        <kbd>Arrows</kbd>: Move/Attack. <kbd>.</kbd> or <kbd>5</kbd>: Wait. <kbd>&lt;</kbd> <kbd>&gt;</kbd>: Stairs.<br>
+        <kbd>w</kbd> Wear/Wield, <kbd>t</kbd> Take off, <kbd>d</kbd> Drop, <kbd>f</kbd> Throw, <kbd>E</kbd> Eat, <kbd>q</kbd> Quaff, <kbd>r</kbd> Read, <kbd>a</kbd> Aim Wand.<br>
         <kbd>m</kbd> Cast Spell, <kbd>p</kbd> Pray, <kbd>i</kbd> Inventory, <kbd>e</kbd> Equipment, <kbd>C</kbd> Character Sheet, <kbd>R</kbd> Rest.<br>
         <kbd>T</kbd> Tunnel, <kbd>s</kbd> Search once, <kbd>S</kbd> Toggle search mode, <kbd>D</kbd> Disarm Trap, <kbd>c</kbd> Close Door, <kbd>o</kbd> Open, <kbd>l</kbd> Look. Bump <kbd>1</kbd>-<kbd>6</kbd> in Town for Shops.
         <br><kbd>Ctrl</kbd>+<kbd>S</kbd> Save & Quit. <kbd>X</kbd> Export Save File. <kbd>U</kbd> Import Save File.
@@ -599,7 +599,7 @@ window.onload = () => {
                 }
 
                 let dx = 0, dy = 0, acted = false;
-                let dir = this.getDirectionFromKey(e.key);
+                let dir = this.getMoveDirectionFromKey(e.key);
 
                 if (e.ctrlKey && e.key.toLowerCase() === 's') {
                     this.saveGame();
@@ -626,9 +626,9 @@ window.onload = () => {
                         case 'd': this.promptSelectItem('DROP', 'Drop which item?'); e.preventDefault(); return;
                         case 'E': this.promptSelectItem('EAT', 'Eat which item?'); e.preventDefault(); return;
                         case 'q': this.promptSelectItem('QUAFF', 'Quaff which potion?'); e.preventDefault(); return;
-                        case 'z': this.promptSelectItem('ZAP', 'Zap which wand?'); e.preventDefault(); return;
+                        case 'a': this.promptSelectItem('ZAP', 'Aim which wand?'); e.preventDefault(); return;
                         case 'r': this.promptSelectItem('READ', 'Read which scroll?'); e.preventDefault(); return;
-                        case 'v': this.promptSelectItem('THROW', 'Throw which item?'); e.preventDefault(); return;
+                        case 'f': this.promptSelectItem('THROW', 'Throw which item?'); e.preventDefault(); return;
 
                         case 'm': 
                             if (this.player.magicType === 'mage') this.openSpellMenu(); 
@@ -675,6 +675,16 @@ window.onload = () => {
                 if (acted) this.advanceTurn();
                 e.preventDefault();
             });
+        }
+
+        getMoveDirectionFromKey(key) {
+            switch(key) {
+                case 'ArrowUp': return {dx: 0, dy: -1};
+                case 'ArrowDown': return {dx: 0, dy: 1};
+                case 'ArrowLeft': return {dx: -1, dy: 0};
+                case 'ArrowRight': return {dx: 1, dy: 0};
+            }
+            return null;
         }
 
         getDirectionFromKey(key) {
@@ -1234,9 +1244,9 @@ window.onload = () => {
         handleShopInput(key) {
             let shopInfo = SHOP_DATA[this.currentShopIdx], shopInv = this.shops[this.currentShopIdx];
             if (this.shopSubState === 'MAIN') {
-                if (key.toLowerCase() === 'b') {
+                if (key.toLowerCase() === 'p') {
                     if (shopInv.length === 0) this.shopKeeperMsg = "I am out of stock!";
-                    else { this.shopSubState = 'BUY_SELECT'; this.shopKeeperMsg = "Buy which item? (a-z or ESC)"; }
+                    else { this.shopSubState = 'BUY_SELECT'; this.shopKeeperMsg = "Purchase which item? (a-z or ESC)"; }
                 } else if (key.toLowerCase() === 's') {
                     if (this.player.inventory.length === 0) this.shopKeeperMsg = "You have nothing to sell!";
                     else { this.shopSubState = 'SELL_SELECT'; this.shopKeeperMsg = "Sell which item? (a-v or ESC)"; }
@@ -1755,7 +1765,7 @@ window.onload = () => {
                     this.drawText(`${String.fromCharCode(97+i)}) ${it.name}${qtyStr}${priceStr}`, 42, 14+i, it.color);
                 }
             }
-            if (this.shopSubState === 'MAIN') this.drawText("[B]uy  [S]ell  [L]eave", 2, ROWS - 5, COLORS.text);
+            if (this.shopSubState === 'MAIN') this.drawText("[P]urchase  [S]ell  [L]eave", 2, ROWS - 5, COLORS.text);
         }
 
         drawOverlay(title, items, isEquip = false) {
@@ -1825,14 +1835,14 @@ window.onload = () => {
             this.ctx.fillRect(0, CELL_SIZE * TOP_UI_ROWS, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
 
             this.drawText("--- HELP / CONTROLS ---", 2, 3, COLORS.ui);
-            this.drawText("Move: Arrows, Numpad, or h j k l y u b n", 2, 5, COLORS.text);
+            this.drawText("Move: Arrow keys", 2, 5, COLORS.text);
             this.drawText("Wait: . or 5      Stairs: < >", 2, 6, COLORS.text);
             this.drawText("Open/Close: o / c   Search: s   Search mode: S   Look: l", 2, 7, COLORS.text);
             this.drawText("Tunnel: T   Disarm: D   Bash: B", 2, 8, COLORS.text);
 
             this.drawText("Inventory: i   Equipment: e   Character: C", 2, 10, COLORS.text);
-            this.drawText("Wear: w   Take off: t   Drop: d   Throw: v", 2, 11, COLORS.text);
-            this.drawText("Eat: E   Quaff: q   Read: r   Zap: z", 2, 12, COLORS.text);
+            this.drawText("Wear: w   Take off: t   Drop: d   Throw: f", 2, 11, COLORS.text);
+            this.drawText("Eat: E   Quaff: q   Read: r   Aim wand: a", 2, 12, COLORS.text);
             this.drawText("Magic: m (mage) / p (priest)", 2, 13, COLORS.text);
             this.drawText("Rest: R   Save+Quit: Ctrl+S   Export: X   Import: U", 2, 14, COLORS.text);
 
