@@ -120,6 +120,7 @@ window.onload = () => {
     const MAX_FOOD = 15000;
     const HUNGER_WARN = 2000;
     const HUNGER_STARVING = 500;
+    const FOOD_RATION_NUTRITION = 5000;
     const SAVE_STORAGE_KEY = 'moriaSave';
     const SAVE_FILE_PREFIX = 'webmoria-save';
     const SAVE_FORMAT_VERSION = 2;
@@ -202,7 +203,7 @@ window.onload = () => {
     ];
 
     const LOOT_TABLE = [
-        { type: 'food', char: ',', color: COLORS.food, name: 'Food Ration', val: 500, food: 5000, prob: 30, weight: 1 },
+        { type: 'food', char: ',', color: COLORS.food, name: 'Food Ration', val: 500, food: FOOD_RATION_NUTRITION, prob: 30, weight: 1 },
         { type: 'light', char: '~', color: COLORS.light, name: 'Wooden Torch', radius: 4, life: 300, val: 5, prob: 15, weight: 2 },
         { type: 'light', char: '~', color: COLORS.light, name: 'Brass Lantern', radius: 6, life: 1000, val: 50, prob: 5, weight: 5 },
         { type: 'potion', char: '!', color: COLORS.potion, name: 'Health Potion', val: 25, prob: 20, weight: 1 },
@@ -343,8 +344,16 @@ window.onload = () => {
             if (!this.player.equip) this.player.equip = { weapon: null, armor: null, shield: null, light: null, ring: null };
             if (!this.player.knownPrices) this.player.knownPrices = {};
             if (typeof this.player.searchMode !== 'boolean') this.player.searchMode = false;
-            if (!Number.isFinite(this.player.maxFood) || this.player.maxFood <= 0) this.player.maxFood = MAX_FOOD;
+            if (!Number.isFinite(this.player.maxFood) || this.player.maxFood < MAX_FOOD) this.player.maxFood = MAX_FOOD;
             if (!Number.isFinite(this.player.food)) this.player.food = Math.floor(this.player.maxFood / 2);
+            this.player.food = Math.max(0, Math.min(this.player.maxFood, this.player.food));
+            if (Array.isArray(this.player.inventory)) {
+                for (const item of this.player.inventory) {
+                    if (item && item.type === 'food' && item.name === 'Food Ration' && !Number.isFinite(item.food)) {
+                        item.food = FOOD_RATION_NUTRITION;
+                    }
+                }
+            }
         }
 
         migrateSavePayload(raw) {
@@ -1181,7 +1190,9 @@ window.onload = () => {
                 this.log(`You drop the ${item.name}.`); acted = true;
             } else if (action === 'EAT') {
                 if (item.type === 'food') {
-                    const foodValue = Number.isFinite(item.food) ? item.food : item.val;
+                    const foodValue = Number.isFinite(item.food)
+                        ? item.food
+                        : (item.name === 'Food Ration' ? FOOD_RATION_NUTRITION : item.val);
                     this.player.food = Math.min(this.player.maxFood, this.player.food + foodValue);
                     this.log(`You eat the ${item.name}.`); 
                     if (item.quantity > 1) item.quantity--; else this.player.inventory.splice(idx, 1);
