@@ -116,6 +116,10 @@ window.onload = () => {
     const MAX_DEPTH = 50;
     const ROOM_LIGHT_MAX_DEPTH = 25;
     const FOV_RADIUS = 9;
+    const START_FOOD = 7500;
+    const MAX_FOOD = 15000;
+    const HUNGER_WARN = 2000;
+    const HUNGER_STARVING = 500;
     const SAVE_STORAGE_KEY = 'moriaSave';
     const SAVE_FILE_PREFIX = 'webmoria-save';
     const SAVE_FORMAT_VERSION = 2;
@@ -198,7 +202,7 @@ window.onload = () => {
     ];
 
     const LOOT_TABLE = [
-        { type: 'food', char: ',', color: COLORS.food, name: 'Food Ration', val: 500, prob: 30, weight: 1 },
+        { type: 'food', char: ',', color: COLORS.food, name: 'Food Ration', val: 500, food: 5000, prob: 30, weight: 1 },
         { type: 'light', char: '~', color: COLORS.light, name: 'Wooden Torch', radius: 4, life: 300, val: 5, prob: 15, weight: 2 },
         { type: 'light', char: '~', color: COLORS.light, name: 'Brass Lantern', radius: 6, life: 1000, val: 50, prob: 5, weight: 5 },
         { type: 'potion', char: '!', color: COLORS.potion, name: 'Health Potion', val: 25, prob: 20, weight: 1 },
@@ -287,7 +291,7 @@ window.onload = () => {
                 level: 1, exp: 0, nextExp: 50,
                 hp: hp, maxHp: hp,
                 mana: maxMana, maxMana: maxMana,
-                gold: 150, food: 1000, maxFood: 1500,
+                gold: 150, food: START_FOOD, maxFood: MAX_FOOD,
                 poison: 0, confused: 0,
                 searchMode: false,
                 maxDepth: 0, recallTurns: 0,
@@ -339,6 +343,8 @@ window.onload = () => {
             if (!this.player.equip) this.player.equip = { weapon: null, armor: null, shield: null, light: null, ring: null };
             if (!this.player.knownPrices) this.player.knownPrices = {};
             if (typeof this.player.searchMode !== 'boolean') this.player.searchMode = false;
+            if (!Number.isFinite(this.player.maxFood) || this.player.maxFood <= 0) this.player.maxFood = MAX_FOOD;
+            if (!Number.isFinite(this.player.food)) this.player.food = Math.floor(this.player.maxFood / 2);
         }
 
         migrateSavePayload(raw) {
@@ -501,7 +507,7 @@ window.onload = () => {
                     this.log("You wake up feeling refreshed.", COLORS.player);
                     this.isResting = false; this.draw(); return;
                 }
-                if (this.player.food <= 200) {
+                if (this.player.food <= HUNGER_WARN) {
                     this.log("You wake up hungry.", COLORS.warn);
                     this.isResting = false; this.draw(); return;
                 }
@@ -1175,7 +1181,8 @@ window.onload = () => {
                 this.log(`You drop the ${item.name}.`); acted = true;
             } else if (action === 'EAT') {
                 if (item.type === 'food') {
-                    this.player.food = Math.min(this.player.maxFood, this.player.food + item.val);
+                    const foodValue = Number.isFinite(item.food) ? item.food : item.val;
+                    this.player.food = Math.min(this.player.maxFood, this.player.food + foodValue);
                     this.log(`You eat the ${item.name}.`); 
                     if (item.quantity > 1) item.quantity--; else this.player.inventory.splice(idx, 1);
                     acted = true;
@@ -1416,8 +1423,8 @@ window.onload = () => {
             if (this.depth === 0) return; 
             this.player.food -= this.player.searchMode ? 2 : 1;
             if (this.player.food < 0) this.player.food = 0;
-            if (this.player.food === 200) this.log("You are getting hungry.", COLORS.warn);
-            if (this.player.food === 50) this.log("You are starving!", COLORS.warn);
+            if (this.player.food === HUNGER_WARN) this.log("You are getting hungry.", COLORS.warn);
+            if (this.player.food === HUNGER_STARVING) this.log("You are starving!", COLORS.warn);
             if (this.player.food <= 0) {
                 if (this.turn % 3 === 0) {
                     this.player.hp--;
