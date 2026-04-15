@@ -633,6 +633,20 @@ window.onload = () => {
                     inv.push(newItem);
                 }
             }
+            if (SHOP_DATA[shopIdx].types.includes('spellbook')) {
+                const noviceBooks = LOOT_TABLE.filter(item =>
+                    item.type === 'spellbook' &&
+                    (item.bookId === 'mage-1' || item.bookId === 'priest-1')
+                );
+                for (const noviceBook of noviceBooks) {
+                    let existing = inv.find(item => item.name === noviceBook.name);
+                    if (existing) {
+                        existing.quantity = Math.max(existing.quantity || 1, 1);
+                    } else {
+                        inv.push({ ...noviceBook, quantity: 1 });
+                    }
+                }
+            }
             return inv;
         }
 
