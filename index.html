@@ -1987,7 +1987,6 @@ window.onload = () => {
             if (this.depth === 0) return; 
             for (let y = 0; y < MAP_ROWS; y++) for (let x = 0; x < MAP_COLS; x++) this.map[y][x].visible = false;
 
-            const hasLight = !!this.player.equip.light;
             const immediateRadius = 1;
             const immediateRadiusSq = immediateRadius * immediateRadius;
             for (let y = Math.max(0, this.player.y - immediateRadius); y <= Math.min(MAP_ROWS - 1, this.player.y + immediateRadius); y++) {
@@ -1996,7 +1995,7 @@ window.onload = () => {
                     if ((dx * dx + dy * dy) > immediateRadiusSq) continue;
                     if (!this.hasLineOfSight(this.player.x, this.player.y, x, y)) continue;
                     this.map[y][x].visible = true;
-                    if (hasLight && this.map[y][x].roomId === undefined) this.map[y][x].explored = true;
+                    this.map[y][x].explored = true;
                 }
             }
 
