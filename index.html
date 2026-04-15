@@ -81,6 +81,7 @@ window.onload = () => {
     const MAP_COLS = 120;    
     const MAP_ROWS = 60;
     const MAX_DEPTH = 50;
+    const ROOM_LIGHT_MAX_DEPTH = 25;
     const FOV_RADIUS = 9;
     const SAVE_STORAGE_KEY = 'moriaSave';
     const SAVE_FILE_PREFIX = 'webmoria-save';
@@ -1432,8 +1433,13 @@ window.onload = () => {
                 let x = RNG.rand(1, MAP_COLS - w - 2), y = RNG.rand(1, MAP_ROWS - h - 2);
                 let newRoom = {x, y, w, h, cx: Math.floor(x + w/2), cy: Math.floor(y + h/2)};
                 if (!rooms.some(r => x <= r.x + r.w + 1 && x + w + 1 >= r.x && y <= r.y + r.h + 1 && y + h + 1 >= r.y)) {
+                    newRoom.id = rooms.length;
+                    newRoom.permaLit = this.depth <= ROOM_LIGHT_MAX_DEPTH && RNG.chance(75);
                     rooms.push(newRoom);
-                    for (let ry = y; ry < y + h; ry++) for (let rx = x; rx < x + w; rx++) this.map[ry][rx] = { char: '.', explored: false, visible: false, solid: false, opaque: false };
+                    for (let ry = y; ry < y + h; ry++) for (let rx = x; rx < x + w; rx++) this.map[ry][rx] = {
+                        char: '.', explored: false, visible: false, solid: false, opaque: false,
+                        roomId: newRoom.id, roomPermaLit: newRoom.permaLit
+                    };
                 }
             }
             for (let i = 1; i < rooms.length; i++) {
@@ -1490,21 +1496,102 @@ window.onload = () => {
             }
         }
 
+        hasLineOfSight(fromX, fromY, toX, toY) {
+            let deltaX = toX - fromX;
+            let deltaY = toY - fromY;
+
+            if (deltaX < 2 && deltaX > -2 && deltaY < 2 && deltaY > -2) return true;
+
+            if (deltaX === 0) {
+                if (deltaY < 0) { let t = fromY; fromY = toY; toY = t; }
+                for (let y = fromY + 1; y < toY; y++) if (this.map[y][fromX].opaque) return false;
+                return true;
+            }
+            if (deltaY === 0) {
+                if (deltaX < 0) { let t = fromX; fromX = toX; toX = t; }
+                for (let x = fromX + 1; x < toX; x++) if (this.map[fromY][x].opaque) return false;
+                return true;
+            }
+
+            let scaleHalf = Math.abs(deltaX * deltaY);
+            let scale = scaleHalf * 2;
+            let xSign = deltaX < 0 ? -1 : 1;
+            let ySign = deltaY < 0 ? -1 : 1;
+            let absDeltaX = Math.abs(deltaX);
+            let absDeltaY = Math.abs(deltaY);
+
+            if (absDeltaX >= absDeltaY) {
+                let dy = deltaY * deltaY;
+                let slope = dy * 2;
+                let x = fromX + xSign;
+                let y;
+                if (dy === scaleHalf) { y = fromY + ySign; dy -= scale; } else y = fromY;
+                while ((toX - x) !== 0) {
+                    if (this.map[y][x].opaque) return false;
+                    dy += slope;
+                    if (dy < scaleHalf) x += xSign;
+                    else if (dy > scaleHalf) {
+                        y += ySign;
+                        if (this.map[y][x].opaque) return false;
+                        x += xSign;
+                        dy -= scale;
+                    } else {
+                        x += xSign;
+                        y += ySign;
+                        dy -= scale;
+                    }
+                }
+                return true;
+            }
+
+            let dx = deltaX * deltaX;
+            let slope = dx * 2;
+            let y = fromY + ySign;
+            let x;
+            if (dx === scaleHalf) { x = fromX + xSign; dx -= scale; } else x = fromX;
+            while ((toY - y) !== 0) {
+                if (this.map[y][x].opaque) return false;
+                dx += slope;
+                if (dx < scaleHalf) y += ySign;
+                else if (dx > scaleHalf) {
+                    x += xSign;
+                    if (this.map[y][x].opaque) return false;
+                    y += ySign;
+                    dx -= scale;
+                } else {
+                    x += xSign;
+                    y += ySign;
+                    dx -= scale;
+                }
+            }
+            return true;
+        }
+
         updateFOV() {
             if (this.depth === 0) return; 
             for (let y = 0; y < MAP_ROWS; y++) for (let x = 0; x < MAP_COLS; x++) this.map[y][x].visible = false;
             
             let lightRadius = this.player.equip.light ? this.player.equip.light.radius : 1.5;
+            let radiusSquared = lightRadius * lightRadius;
+            for (let y = Math.max(0, this.player.y - Math.ceil(lightRadius)); y <= Math.min(MAP_ROWS - 1, this.player.y + Math.ceil(lightRadius)); y++) {
+                for (let x = Math.max(0, this.player.x - Math.ceil(lightRadius)); x <= Math.min(MAP_COLS - 1, this.player.x + Math.ceil(lightRadius)); x++) {
+                    let dx = x - this.player.x, dy = y - this.player.y;
+                    if ((dx * dx + dy * dy) > radiusSquared) continue;
+                    if (!this.hasLineOfSight(this.player.x, this.player.y, x, y)) continue;
+                    this.map[y][x].visible = true;
+                    this.map[y][x].explored = true;
+                }
+            }
 
-            for (let angle = 0; angle < 360; angle += 1.5) {
-                let dx = Math.cos(angle * Math.PI / 180), dy = Math.sin(angle * Math.PI / 180);
-                let cx = this.player.x + 0.5, cy = this.player.y + 0.5;
-                for (let r = 0; r < lightRadius; r++) {
-                    let mx = Math.floor(cx), my = Math.floor(cy);
-                    if (mx < 0 || my < 0 || mx >= MAP_COLS || my >= MAP_ROWS) break;
-                    this.map[my][mx].visible = true; this.map[my][mx].explored = true;
-                    if (this.map[my][mx].opaque) break;
-                    cx += dx; cy += dy;
+            let standingCell = this.map[this.player.y][this.player.x];
+            if (standingCell.roomId !== undefined && standingCell.roomPermaLit) {
+                for (let y = 0; y < MAP_ROWS; y++) {
+                    for (let x = 0; x < MAP_COLS; x++) {
+                        if (this.map[y][x].roomId === standingCell.roomId) {
+                            this.map[y][x].visible = true;
+                            this.map[y][x].explored = true;
+                        }
+                    }
                 }
             }
         }
