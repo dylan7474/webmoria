@@ -374,7 +374,7 @@ window.onload = () => {
                 inventory: [], 
                 equip: { weapon: null, armor: null, shield: null, light: null, ring: null },
                 knownPrices: {},
-                studyPoints: 0,
+                studyPoints: c.magic !== 'none' ? 1 : 0,
                 knownSpells: [],
                 castedSpells: {},
                 blessedTurns: 0,
@@ -387,6 +387,7 @@ window.onload = () => {
             this.state = 'PLAY';
             this.generateLevel();
             this.log(`Welcome to the Dungeons of Moria, ${this.player.name}.`);
+            this.maybePromptStudy();
             this.draw();
         }
 
