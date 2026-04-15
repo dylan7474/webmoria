@@ -581,8 +581,13 @@ window.onload = () => {
             if (a.type === 'gold' || b.type === 'gold') return false;
             if (a.type !== b.type || a.name !== b.name) return false;
 
-            const signatureKeys = ['atk', 'ac', 'val', 'food', 'effect', 'bookId', 'spellClass', 'dmg', 'charges', 'radius', 'life', 'weight'];
-            return signatureKeys.every(key => (a[key] ?? null) === (b[key] ?? null));
+            // Stack by item identity, not mutable runtime state.
+            // This keeps identical item types grouped (e.g. torches), while
+            // still preventing different spellbooks/effects from merging.
+            if ((a.bookId ?? null) !== (b.bookId ?? null)) return false;
+            if ((a.effect ?? null) !== (b.effect ?? null)) return false;
+            if ((a.spellClass ?? null) !== (b.spellClass ?? null)) return false;
+            return true;
         }
 
         findInventoryStack(item) {
@@ -661,7 +666,7 @@ window.onload = () => {
             let numItems = RNG.rand(8, 16);
             for (let i=0; i<numItems; i++) {
                 let newItem = RNG.pickWeight(LOOT_TABLE, SHOP_DATA[shopIdx].types);
-                let existing = inv.find(item => item.name === newItem.name);
+                let existing = inv.find(item => this.canItemsStack(item, newItem));
                 if (existing) {
                     existing.quantity = (existing.quantity || 1) + 1;
                 } else {
@@ -675,7 +680,7 @@ window.onload = () => {
                     (item.bookId === 'mage-1' || item.bookId === 'priest-1')
                 );
                 for (const noviceBook of noviceBooks) {
-                    let existing = inv.find(item => item.name === noviceBook.name);
+                    let existing = inv.find(item => this.canItemsStack(item, noviceBook));
                     if (existing) {
                         existing.quantity = Math.max(existing.quantity || 1, 1);
                     } else {
@@ -1592,7 +1597,7 @@ window.onload = () => {
             soldItem.quantity = 1;
             
             let shopInv = this.shops[this.currentShopIdx];
-            let existing = shopInv.find(i => i.name === soldItem.name);
+            let existing = shopInv.find(i => this.canItemsStack(i, soldItem));
             if (existing) {
                 existing.quantity = (existing.quantity || 1) + 1;
             } else {
