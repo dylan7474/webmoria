@@ -100,4 +100,5 @@ Then open `http://localhost:3016/index.html` (or `/`).
 
 - Added physical mage/priest spell books (8 total tiers) that can be bought in town or found in the dungeon.
 - Added Umoria-style study flow: magical classes gain study points on level-up and use `G` to learn from books currently in inventory.
+- Magical classes now begin with 1 study point so early-game spell learning is available once they have a starter book.
 - Added stat/level-driven casting failure chance, slower mana regeneration, and one-time EXP bonuses for first successful casts.
