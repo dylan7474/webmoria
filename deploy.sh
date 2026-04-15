@@ -36,8 +36,67 @@ FROM node:20-alpine
 RUN apk add --no-cache openssl
 WORKDIR /app
 COPY moria.html /app/moria.html
-RUN cat > /app/server.js <<'SERVER_EOF'\nconst http = require('http');\nconst https = require('https');\nconst fs = require('fs');\n\nconst PORT = Number(process.env.PORT || 8080);\nconst ENABLE_HTTPS = process.env.ENABLE_HTTPS !== '0';\nconst TLS_CERT_PATH = process.env.TLS_CERT_PATH || '/app/tls/cert.pem';\nconst TLS_KEY_PATH = process.env.TLS_KEY_PATH || '/app/tls/key.pem';\n\nconst html = fs.readFileSync('/app/moria.html');\n\nconst requestHandler = (req, res) => {\n  const pathname = (req.url || '/').split('?')[0];\n  if (pathname === '/' || pathname === '/index.html' || pathname === '/moria.html') {\n    res.writeHead(200, {\n      'Content-Type': 'text/html; charset=utf-8',\n      'Content-Length': html.length,\n      'Cache-Control': 'no-cache',\n    });\n    res.end(html);\n    return;\n  }\n\n  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });\n  res.end('Not found');\n};\n\nif (ENABLE_HTTPS) {\n  const tlsOptions = {\n    cert: fs.readFileSync(TLS_CERT_PATH),\n    key: fs.readFileSync(TLS_KEY_PATH),\n  };\n  https.createServer(tlsOptions, requestHandler).listen(PORT, () => {\n    console.log(\`webmoria server listening with HTTPS on \${PORT}\`);\n  });\n} else {\n  http.createServer(requestHandler).listen(PORT, () => {\n    console.log(\`webmoria server listening with HTTP on \${PORT}\`);\n  });\n}\nSERVER_EOF
-RUN cat > /app/entrypoint.sh <<'ENTRYPOINT_EOF'\n#!/usr/bin/env sh\nset -eu\n\nif [ "${ENABLE_HTTPS:-1}" = "1" ]; then\n  mkdir -p /app/tls\n  if [ ! -s "${TLS_CERT_PATH:-/app/tls/cert.pem}" ] || [ ! -s "${TLS_KEY_PATH:-/app/tls/key.pem}" ]; then\n    echo "Generating self-signed TLS certificate for host: ${HOST_ARG}"\n    openssl req -x509 -newkey rsa:2048 -nodes \\\n      -keyout "${TLS_KEY_PATH:-/app/tls/key.pem}" \\\n      -out "${TLS_CERT_PATH:-/app/tls/cert.pem}" \\\n      -sha256 -days 365 \\\n      -subj "/CN=${HOST_ARG}" \\\n      -addext "subjectAltName=DNS:${HOST_ARG},IP:127.0.0.1"\n  fi\nfi\n\nexec node /app/server.js\nENTRYPOINT_EOF
+RUN cat > /app/server.js <<'SERVER_EOF'
+const http = require('http');
+const https = require('https');
+const fs = require('fs');
+
+const PORT = Number(process.env.PORT || 8080);
+const ENABLE_HTTPS = process.env.ENABLE_HTTPS !== '0';
+const TLS_CERT_PATH = process.env.TLS_CERT_PATH || '/app/tls/cert.pem';
+const TLS_KEY_PATH = process.env.TLS_KEY_PATH || '/app/tls/key.pem';
+
+const html = fs.readFileSync('/app/moria.html');
+
+const requestHandler = (req, res) => {
+  const pathname = (req.url || '/').split('?')[0];
+  if (pathname === '/' || pathname === '/index.html' || pathname === '/moria.html') {
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Content-Length': html.length,
+      'Cache-Control': 'no-cache',
+    });
+    res.end(html);
+    return;
+  }
+
+  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end('Not found');
+};
+
+if (ENABLE_HTTPS) {
+  const tlsOptions = {
+    cert: fs.readFileSync(TLS_CERT_PATH),
+    key: fs.readFileSync(TLS_KEY_PATH),
+  };
+  https.createServer(tlsOptions, requestHandler).listen(PORT, () => {
+    console.log(\`webmoria server listening with HTTPS on \${PORT}\`);
+  });
+} else {
+  http.createServer(requestHandler).listen(PORT, () => {
+    console.log(\`webmoria server listening with HTTP on \${PORT}\`);
+  });
+}
+SERVER_EOF
+RUN cat > /app/entrypoint.sh <<'ENTRYPOINT_EOF'
+#!/usr/bin/env sh
+set -eu
+
+if [ "${ENABLE_HTTPS:-1}" = "1" ]; then
+  mkdir -p /app/tls
+  if [ ! -s "${TLS_CERT_PATH:-/app/tls/cert.pem}" ] || [ ! -s "${TLS_KEY_PATH:-/app/tls/key.pem}" ]; then
+    echo "Generating self-signed TLS certificate for host: ${HOST_ARG}"
+    openssl req -x509 -newkey rsa:2048 -nodes \
+      -keyout "${TLS_KEY_PATH:-/app/tls/key.pem}" \
+      -out "${TLS_CERT_PATH:-/app/tls/cert.pem}" \
+      -sha256 -days 365 \
+      -subj "/CN=${HOST_ARG}" \
+      -addext "subjectAltName=DNS:${HOST_ARG},IP:127.0.0.1"
+  fi
+fi
+
+exec node /app/server.js
+ENTRYPOINT_EOF
 RUN chmod +x /app/entrypoint.sh
 EXPOSE ${PORT_ARG}
 ENV PORT=${PORT_ARG}
