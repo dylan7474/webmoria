@@ -2001,7 +2001,7 @@ window.onload = () => {
             }
 
             const standingCell = this.map[this.player.y][this.player.x];
-            if (hasLight && standingCell.roomId !== undefined) {
+            if (standingCell.roomId !== undefined && standingCell.roomPermaLit) {
                 for (let y = 0; y < MAP_ROWS; y++) {
                     for (let x = 0; x < MAP_COLS; x++) {
                         if (this.map[y][x].roomId === standingCell.roomId) {
