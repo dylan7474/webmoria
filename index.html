@@ -267,28 +267,29 @@ window.onload = () => {
     ];
 
     const LOOT_TABLE = [
-        { type: 'food', char: ',', color: COLORS.food, name: 'Food Ration', val: 500, food: FOOD_RATION_NUTRITION, prob: 30, weight: 1 },
-        { type: 'light', char: '~', color: COLORS.light, name: 'Wooden Torch', radius: 4, life: 300, val: 5, prob: 15, weight: 2 },
-        { type: 'light', char: '~', color: COLORS.light, name: 'Brass Lantern', radius: 6, life: 1000, val: 50, prob: 5, weight: 5 },
-        { type: 'potion', char: '!', color: COLORS.potion, name: 'Health Potion', val: 25, prob: 20, weight: 1 },
-        { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Phase Door', val: 40, prob: 15, effect: 'phase', weight: 0 },
-        { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Word of Recall', val: 200, prob: 5, effect: 'recall', weight: 0 },
-        { type: 'spellbook', char: '+', color: '#88ccff', name: '[Beginners-Magik]', val: 120, prob: 6, weight: 4, spellClass: 'mage', bookId: 'mage-1' },
-        { type: 'spellbook', char: '+', color: '#88ccff', name: '[Magik I]', val: 260, prob: 4, weight: 4, spellClass: 'mage', bookId: 'mage-2' },
-        { type: 'spellbook', char: '+', color: '#88ccff', name: '[Magik II]', val: 420, prob: 3, weight: 4, spellClass: 'mage', bookId: 'mage-3' },
-        { type: 'spellbook', char: '+', color: '#88ccff', name: "[The Mages' Guide to Power]", val: 700, prob: 2, weight: 4, spellClass: 'mage', bookId: 'mage-4' },
-        { type: 'spellbook', char: '+', color: '#ffff88', name: '[Beginners Handbook]', val: 120, prob: 6, weight: 4, spellClass: 'priest', bookId: 'priest-1' },
-        { type: 'spellbook', char: '+', color: '#ffff88', name: '[Words of Wisdom]', val: 260, prob: 4, weight: 4, spellClass: 'priest', bookId: 'priest-2' },
-        { type: 'spellbook', char: '+', color: '#ffff88', name: '[Chants and Blessings]', val: 420, prob: 3, weight: 4, spellClass: 'priest', bookId: 'priest-3' },
-        { type: 'spellbook', char: '+', color: '#ffff88', name: '[Exorcism and Dispelling]', val: 700, prob: 2, weight: 4, spellClass: 'priest', bookId: 'priest-4' },
-        { type: 'wand', char: '-', color: COLORS.wand, name: 'Wand of Magic Missile', val: 100, prob: 10, charges: 5, dmg: 15, weight: 1 },
-        { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Dagger', atk: 2, val: 10, prob: 20, weight: 1 },
-        { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Longsword', atk: 6, val: 80, prob: 15, weight: 4 },
-        { type: 'weapon', char: '\\', color: COLORS.weapon, name: 'Battle Axe', atk: 8, val: 150, prob: 5, weight: 8 },
-        { type: 'armor', char: '[', color: COLORS.armor, name: 'Leather Armor', ac: 2, val: 20, prob: 20, weight: 15 },
-        { type: 'armor', char: '[', color: COLORS.armor, name: 'Chain Mail', ac: 5, val: 90, prob: 15, weight: 40 },
-        { type: 'shield', char: ')', color: COLORS.armor, name: 'Wooden Shield', ac: 2, val: 30, prob: 15, weight: 5 },
-        { type: 'ring', char: '=', color: COLORS.wand, name: 'Ring of Protection', ac: 3, val: 200, prob: 5, weight: 0 }
+        // Values tuned to be closer to classic Moria-era town pricing.
+        { type: 'food', char: ',', color: COLORS.food, name: 'Food Ration', val: 3, food: FOOD_RATION_NUTRITION, prob: 30, weight: 1 },
+        { type: 'light', char: '~', color: COLORS.light, name: 'Wooden Torch', radius: 4, life: 300, val: 2, prob: 15, weight: 2 },
+        { type: 'light', char: '~', color: COLORS.light, name: 'Brass Lantern', radius: 6, life: 1000, val: 30, prob: 5, weight: 5 },
+        { type: 'potion', char: '!', color: COLORS.potion, name: 'Health Potion', val: 20, prob: 20, weight: 1 },
+        { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Phase Door', val: 15, prob: 15, effect: 'phase', weight: 0 },
+        { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Word of Recall', val: 150, prob: 5, effect: 'recall', weight: 0 },
+        { type: 'spellbook', char: '+', color: '#88ccff', name: '[Beginners-Magik]', val: 25, prob: 6, weight: 4, spellClass: 'mage', bookId: 'mage-1' },
+        { type: 'spellbook', char: '+', color: '#88ccff', name: '[Magik I]', val: 80, prob: 4, weight: 4, spellClass: 'mage', bookId: 'mage-2' },
+        { type: 'spellbook', char: '+', color: '#88ccff', name: '[Magik II]', val: 180, prob: 3, weight: 4, spellClass: 'mage', bookId: 'mage-3' },
+        { type: 'spellbook', char: '+', color: '#88ccff', name: "[The Mages' Guide to Power]", val: 325, prob: 2, weight: 4, spellClass: 'mage', bookId: 'mage-4' },
+        { type: 'spellbook', char: '+', color: '#ffff88', name: '[Beginners Handbook]', val: 25, prob: 6, weight: 4, spellClass: 'priest', bookId: 'priest-1' },
+        { type: 'spellbook', char: '+', color: '#ffff88', name: '[Words of Wisdom]', val: 80, prob: 4, weight: 4, spellClass: 'priest', bookId: 'priest-2' },
+        { type: 'spellbook', char: '+', color: '#ffff88', name: '[Chants and Blessings]', val: 180, prob: 3, weight: 4, spellClass: 'priest', bookId: 'priest-3' },
+        { type: 'spellbook', char: '+', color: '#ffff88', name: '[Exorcism and Dispelling]', val: 325, prob: 2, weight: 4, spellClass: 'priest', bookId: 'priest-4' },
+        { type: 'wand', char: '-', color: COLORS.wand, name: 'Wand of Magic Missile', val: 75, prob: 10, charges: 5, dmg: 15, weight: 1 },
+        { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Dagger', atk: 2, val: 4, prob: 20, weight: 1 },
+        { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Longsword', atk: 6, val: 30, prob: 15, weight: 4 },
+        { type: 'weapon', char: '\\', color: COLORS.weapon, name: 'Battle Axe', atk: 8, val: 55, prob: 5, weight: 8 },
+        { type: 'armor', char: '[', color: COLORS.armor, name: 'Leather Armor', ac: 2, val: 18, prob: 20, weight: 15 },
+        { type: 'armor', char: '[', color: COLORS.armor, name: 'Chain Mail', ac: 5, val: 75, prob: 15, weight: 40 },
+        { type: 'shield', char: ')', color: COLORS.armor, name: 'Wooden Shield', ac: 2, val: 10, prob: 15, weight: 5 },
+        { type: 'ring', char: '=', color: COLORS.wand, name: 'Ring of Protection', ac: 3, val: 180, prob: 5, weight: 0 }
     ];
 
     class RNG {
