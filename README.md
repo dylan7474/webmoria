@@ -28,6 +28,22 @@ python3 -m http.server 8000
 
 Then open <http://localhost:8000/moria.html>.
 
+### Option 3: Deploy with Docker
+
+Use the included deployment script:
+
+```bash
+./deploy.sh [PORT] [TLS_HOST]
+```
+
+Example:
+
+```bash
+./deploy.sh 8080 localhost
+```
+
+Then open `https://localhost:8080/moria.html` (or `/`). The container auto-generates a self-signed certificate on first start.
+
 ## Basic controls
 
 ### Movement and world interaction
