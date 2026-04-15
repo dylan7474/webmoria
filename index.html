@@ -15,14 +15,17 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            overflow: hidden;
+            min-height: 100vh;
+            overflow: auto;
+            padding: 8px;
+            box-sizing: border-box;
             user-select: none;
         }
         #game-container {
             display: flex;
             flex-direction: column;
             align-items: center;
+            width: min(1286px, 100%);
             background: #1f2328;
             border: 3px solid #2b8ce5;
             border-radius: 24px;
@@ -56,6 +59,19 @@
         canvas {
             background-color: #1f2328;
             cursor: crosshair;
+            display: block;
+            width: 100%;
+            height: auto;
+            max-height: calc(100vh - 170px);
+            object-fit: contain;
+        }
+        @media (max-height: 860px) {
+            #instructions {
+                display: none;
+            }
+            canvas {
+                max-height: calc(100vh - 70px);
+            }
         }
         #instructions {
             margin-top: 10px;
