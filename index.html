@@ -773,7 +773,7 @@ window.onload = () => {
             this.log(`You cast ${spell.name}.`, COLORS.msg);
 
             if (spell.type === 'phase') {
-                this.player.x = RNG.rand(1, MAP_COLS-2); this.player.y = RNG.rand(1, MAP_ROWS-2);
+                this.teleportPlayerToSafeLocation();
                 this.log("You blink out and reappear elsewhere!");
             } else if (spell.type === 'heal') {
                 this.player.hp = Math.min(this.player.maxHp, this.player.hp + spell.val);
@@ -843,18 +843,17 @@ window.onload = () => {
             let trapName = this.getTrapName(t.trapType);
             if (t.trapType === 1) { // Teleport trap
                 this.log(`You triggered a ${trapName}!`, COLORS.trap);
-                let destination = this.findSafeTeleportDestination();
-                this.player.x = destination.x;
-                this.player.y = destination.y;
+                this.teleportPlayerToSafeLocation();
             } else if (t.trapType === 2) { // Trap Door
                 this.log(`You triggered a ${trapName}!`, COLORS.trap);
                 this.log("You fall through to a deeper level!", COLORS.trap);
-                this.player.hp -= RNG.roll(2, 6);
+                let depthScale = Math.max(0, this.depth - 3);
+                this.player.hp -= RNG.roll(1, 4) + Math.floor(depthScale / 2);
                 if (this.player.hp <= 0) { this.state = 'DEAD'; this.player.hp = 0; this.log("You die.", '#f00'); return; }
                 this.depth++;
                 this.generateLevel();
             } else { // Dart Trap
-                let dmg = RNG.roll(1, 6) + Math.floor(this.depth / 2);
+                let dmg = RNG.roll(1, 3) + Math.floor(Math.max(0, this.depth - 1) / 3);
                 this.player.hp -= dmg;
                 this.log(`You triggered a ${trapName}!`, COLORS.trap);
                 this.log(`A dart strikes you for ${dmg} damage!`, COLORS.trap);
@@ -898,6 +897,28 @@ window.onload = () => {
             }
 
             return { x: this.player.x, y: this.player.y };
+        }
+
+        teleportPlayerToSafeLocation() {
+            let destination = this.findSafeTeleportDestination();
+            this.player.x = destination.x;
+            this.player.y = destination.y;
+        }
+
+        getTrapTypeForDepth() {
+            if (this.depth <= 1) return 1; // early game: non-lethal teleport traps only
+            if (this.depth <= 3) return RNG.chance(65) ? 1 : 0; // introduce darts gradually
+            if (this.depth <= 7) {
+                if (RNG.chance(50)) return 0;
+                return RNG.chance(75) ? 1 : 2;
+            }
+            return RNG.rand(0, 2);
+        }
+
+        getTrapTriggerChance() {
+            if (this.depth <= 1) return 30;
+            if (this.depth <= 3) return 40;
+            return Math.min(65, 45 + Math.floor(this.depth / 4));
         }
 
         executeDirectionAction(dx, dy) {
@@ -1136,7 +1157,7 @@ window.onload = () => {
                 if (item.type === 'scroll') {
                     this.log(`You read the ${item.name}.`, COLORS.scroll);
                     if (item.effect === 'phase') {
-                        this.player.x = RNG.rand(1, MAP_COLS-2); this.player.y = RNG.rand(1, MAP_ROWS-2);
+                        this.teleportPlayerToSafeLocation();
                         this.log("You blink out and reappear elsewhere!");
                     } else if (item.effect === 'recall') {
                         this.log("The air around you begins to crackle...");
@@ -1434,7 +1455,9 @@ window.onload = () => {
                             this.map[y][x] = { char: '+', explored: false, visible: false, solid: true, opaque: true };
                             if (RNG.chance(30)) { this.map[y][x].char = '#'; this.map[y][x].isSecretDoor = true; } // Secret door
                         } else if (RNG.chance(3)) { // Traps
-                            this.map[y][x].isTrap = true; this.map[y][x].trapHidden = true; this.map[y][x].trapType = RNG.rand(0, 2);
+                            this.map[y][x].isTrap = true;
+                            this.map[y][x].trapHidden = true;
+                            this.map[y][x].trapType = this.getTrapTypeForDepth();
                         }
                     } else if (this.map[y][x].char === '#') {
                         if (RNG.chance(5)) this.map[y][x].char = '%'; // Mineral vein
@@ -1512,7 +1535,7 @@ window.onload = () => {
                 this.player.x = nx; this.player.y = ny;
                 if (targetCell.isTrap) {
                     if (targetCell.trapHidden) { targetCell.trapHidden = false; }
-                    if (RNG.chance(50)) {
+                    if (RNG.chance(this.getTrapTriggerChance())) {
                         this.triggerTrap(nx, ny);
                     } else this.log("You safely pass a trap.");
                 }
