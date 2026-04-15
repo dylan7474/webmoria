@@ -16,7 +16,7 @@ There is no compilation step.
 ### Option 1: Open directly
 
 1. Clone this repository.
-2. Open `moria.html` in your browser.
+2. Open `index.html` in your browser.
 
 ### Option 2: Serve locally (recommended)
 
@@ -26,7 +26,7 @@ From the repository root:
 python3 -m http.server 8000
 ```
 
-Then open <http://localhost:8000/moria.html>.
+Then open <http://localhost:8000/index.html> (or <http://localhost:8000/>).
 
 ### Option 3: Deploy with Docker
 
@@ -42,7 +42,7 @@ Example:
 ./deploy.sh 3016
 ```
 
-Then open `http://localhost:3016/moria.html` (or `/`).
+Then open `http://localhost:3016/index.html` (or `/`).
 
 ## Basic controls
 
