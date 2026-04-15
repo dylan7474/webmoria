@@ -33,16 +33,16 @@ Then open <http://localhost:8000/moria.html>.
 Use the included deployment script:
 
 ```bash
-./deploy.sh [PORT] [TLS_HOST]
+./deploy.sh [PORT]
 ```
 
 Example:
 
 ```bash
-./deploy.sh 8080 localhost
+./deploy.sh 3016
 ```
 
-Then open `https://localhost:8080/moria.html` (or `/`). The container auto-generates a self-signed certificate on first start.
+Then open `http://localhost:3016/moria.html` (or `/`).
 
 ## Basic controls
 
