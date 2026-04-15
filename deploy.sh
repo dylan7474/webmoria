@@ -18,8 +18,8 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -f "${SCRIPT_DIR}/moria.html" ]; then
-  echo "Error: moria.html was not found in ${SCRIPT_DIR}."
+if [ ! -f "${SCRIPT_DIR}/index.html" ]; then
+  echo "Error: index.html was not found in ${SCRIPT_DIR}."
   exit 1
 fi
 
@@ -31,8 +31,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-cp "${SCRIPT_DIR}/moria.html" "${BUILD_DIR}/moria.html"
-cp "${SCRIPT_DIR}/moria.html" "${BUILD_DIR}/index.html"
+cp "${SCRIPT_DIR}/index.html" "${BUILD_DIR}/index.html"
 
 cat > "${BUILD_DIR}/nginx.conf" <<NGINX_EOF
 server {
@@ -50,7 +49,6 @@ NGINX_EOF
 
 cat > "${BUILD_DIR}/Dockerfile" <<'DOCKER_EOF'
 FROM nginx:1.29-alpine
-COPY moria.html /usr/share/nginx/html/moria.html
 COPY index.html /usr/share/nginx/html/index.html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 DOCKER_EOF
@@ -71,5 +69,5 @@ docker run -d \
 echo "========================================="
 echo "Deployed ${PROJECT_NAME}."
 echo "URL: http://localhost:${PORT_ARG}/"
-echo "Game file: http://localhost:${PORT_ARG}/moria.html"
+echo "Game file: http://localhost:${PORT_ARG}/index.html"
 echo "========================================="
