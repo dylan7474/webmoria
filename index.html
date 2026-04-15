@@ -1635,6 +1635,7 @@ window.onload = () => {
                         this.haggleItem = targetInv[idx]; this.haggleItemIdx = idx;
                         this.haggleInput = "";
                         this.haggleAnnoyance = 0;
+                        this.lastHagglePlayerAmount = null;
                         let baseVal = this.haggleItem.val;
                         
                         if (this.shopSubState === 'BUY_SELECT') {
@@ -1683,11 +1684,27 @@ window.onload = () => {
                 else if (key === 'Enter' && this.haggleInput.length > 0) {
                     let amt = parseInt(this.haggleInput); this.haggleInput = "";
                     if (this.shopSubState === 'HAGGLE_BUY') {
+                        const prevOffer = this.lastHagglePlayerAmount;
+                        if (prevOffer !== null && amt <= prevOffer) {
+                            this.haggleAnnoyance++;
+                            if (this.haggleAnnoyance > 3) {
+                                this.state = 'PLAY'; this.log("The shopkeeper kicks you out!", COLORS.warn);
+                            } else {
+                                this.shopKeeperMsg = "Your offer must improve. Offer more gold.";
+                            }
+                            this.draw();
+                            return;
+                        }
+                        this.lastHagglePlayerAmount = amt;
                         if (amt >= this.shopAsk) {
                             this.executeBuy(amt);
                         } else if (amt >= this.minAccept) {
-                            let drop = Math.max(1, Math.floor((this.shopAsk - amt) / 3));
-                            this.shopAsk -= drop;
+                            let gap = this.shopAsk - amt;
+                            let baseDrop = Math.max(1, Math.floor(gap / 3));
+                            let bidStep = prevOffer === null ? 0 : Math.max(0, amt - prevOffer);
+                            let goodwillDrop = Math.floor(bidStep / 2);
+                            let drop = Math.max(1, baseDrop + goodwillDrop);
+                            this.shopAsk = Math.max(this.minAccept, this.shopAsk - drop);
                             if (this.shopAsk <= amt) {
                                 this.executeBuy(amt);
                             } else {
@@ -1704,11 +1721,27 @@ window.onload = () => {
                             }
                         }
                     } else { // HAGGLE_SELL
+                        const prevAsk = this.lastHagglePlayerAmount;
+                        if (prevAsk !== null && amt >= prevAsk) {
+                            this.haggleAnnoyance++;
+                            if (this.haggleAnnoyance > 3) {
+                                this.state = 'PLAY'; this.log("The shopkeeper kicks you out!", COLORS.warn);
+                            } else {
+                                this.shopKeeperMsg = "You want too much. Ask for less.";
+                            }
+                            this.draw();
+                            return;
+                        }
+                        this.lastHagglePlayerAmount = amt;
                         if (amt <= this.shopOffer) {
                             this.executeSell(amt);
                         } else if (amt <= this.maxAccept) {
-                            let raise = Math.max(1, Math.floor((amt - this.shopOffer) / 3));
-                            this.shopOffer += raise;
+                            let gap = amt - this.shopOffer;
+                            let baseRaise = Math.max(1, Math.floor(gap / 3));
+                            let askStep = prevAsk === null ? 0 : Math.max(0, prevAsk - amt);
+                            let goodwillRaise = Math.floor(askStep / 2);
+                            let raise = Math.max(1, baseRaise + goodwillRaise);
+                            this.shopOffer = Math.min(this.maxAccept, this.shopOffer + raise);
                             if (this.shopOffer >= amt) {
                                 this.executeSell(amt);
                             } else {
