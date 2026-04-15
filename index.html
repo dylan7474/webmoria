@@ -87,7 +87,7 @@
     <div id="instructions">
         <kbd>Arrows</kbd>: Move/Attack. <kbd>.</kbd> or <kbd>5</kbd>: Wait. <kbd>&lt;</kbd> <kbd>&gt;</kbd>: Stairs.<br>
         <kbd>w</kbd> Wear/Wield, <kbd>t</kbd> Take off, <kbd>d</kbd> Drop, <kbd>f</kbd> Throw, <kbd>E</kbd> Eat, <kbd>q</kbd> Quaff, <kbd>r</kbd> Read, <kbd>a</kbd> Aim Wand.<br>
-        <kbd>m</kbd> Cast Spell, <kbd>p</kbd> Pray, <kbd>i</kbd> Inventory, <kbd>e</kbd> Equipment, <kbd>C</kbd> Character Sheet, <kbd>R</kbd> Rest.<br>
+        <kbd>m</kbd> Cast Spell, <kbd>p</kbd> Pray, <kbd>G</kbd> Gain/Study, <kbd>i</kbd> Inventory, <kbd>e</kbd> Equipment, <kbd>C</kbd> Character Sheet, <kbd>R</kbd> Rest.<br>
         <kbd>T</kbd> Tunnel, <kbd>s</kbd> Search once, <kbd>S</kbd> Toggle search mode, <kbd>D</kbd> Disarm Trap, <kbd>c</kbd> Close Door, <kbd>o</kbd> Open, <kbd>l</kbd> Look. Bump <kbd>1</kbd>-<kbd>6</kbd> in Town for Shops.
         <br><kbd>Ctrl</kbd>+<kbd>S</kbd> Save & Quit. <kbd>X</kbd> Export Save File. <kbd>U</kbd> Import Save File.
     </div>
@@ -151,18 +151,82 @@ window.onload = () => {
         { name: "Priest", hp: 9, str: 0, int: -1, wis: 3, dex: 0, con: 1, magic: 'priest' }
     ];
 
-    const SPELLBOOK = {
-        'mage': [
-            { name: "Magic Missile", lvl: 1, cost: 1, type: 'bolt', dmg: 10 },
-            { name: "Phase Door", lvl: 2, cost: 2, type: 'phase' },
-            { name: "Cure Poison", lvl: 4, cost: 4, type: 'cure' },
-            { name: "Fireball", lvl: 6, cost: 6, type: 'ball', dmg: 25 }
+    const SPELLBOOK_LIBRARY = {
+        mage: [
+            {
+                id: 'mage-1',
+                name: "Beginners' Handbook",
+                tier: 1,
+                spells: [
+                    { id: 'mage-magic-missile', name: 'Magic Missile', lvl: 1, cost: 1, failBase: 22, type: 'bolt', dmg: 10 },
+                    { id: 'mage-phase-door', name: 'Phase Door', lvl: 2, cost: 2, failBase: 28, type: 'phase' },
+                    { id: 'mage-light-area', name: 'Light Area', lvl: 3, cost: 2, failBase: 30, type: 'light' }
+                ]
+            },
+            {
+                id: 'mage-2',
+                name: 'Conjurings and Tricks',
+                tier: 2,
+                spells: [
+                    { id: 'mage-cure-poison', name: 'Cure Poison', lvl: 4, cost: 4, failBase: 38, type: 'cure' },
+                    { id: 'mage-fire-bolt', name: 'Fire Bolt', lvl: 5, cost: 5, failBase: 44, type: 'bolt', dmg: 20 }
+                ]
+            },
+            {
+                id: 'mage-3',
+                name: 'Incantations and Illusions',
+                tier: 3,
+                spells: [
+                    { id: 'mage-teleport', name: 'Teleport', lvl: 6, cost: 7, failBase: 52, type: 'teleport' },
+                    { id: 'mage-fireball', name: 'Fireball', lvl: 7, cost: 8, failBase: 58, type: 'ball', dmg: 28 }
+                ]
+            },
+            {
+                id: 'mage-4',
+                name: 'Raal\'s Tome of Destruction',
+                tier: 4,
+                spells: [
+                    { id: 'mage-ice-storm', name: 'Ice Storm', lvl: 9, cost: 12, failBase: 65, type: 'ball', dmg: 45 }
+                ]
+            }
         ],
-        'priest': [
-            { name: "Cure Light Wounds", lvl: 1, cost: 2, type: 'heal', val: 15 },
-            { name: "Light Area", lvl: 3, cost: 3, type: 'light' },
-            { name: "Orb of Draining", lvl: 5, cost: 5, type: 'bolt', dmg: 20 },
-            { name: "Dispel Evil", lvl: 7, cost: 8, type: 'ball', dmg: 35 }
+        priest: [
+            {
+                id: 'priest-1',
+                name: 'Novice\'s Book of Prayers',
+                tier: 1,
+                spells: [
+                    { id: 'priest-cure-light', name: 'Cure Light Wounds', lvl: 1, cost: 2, failBase: 20, type: 'heal', val: 15 },
+                    { id: 'priest-bless', name: 'Bless', lvl: 2, cost: 2, failBase: 25, type: 'bless' },
+                    { id: 'priest-detect-evil', name: 'Detect Evil', lvl: 3, cost: 2, failBase: 30, type: 'detect' }
+                ]
+            },
+            {
+                id: 'priest-2',
+                name: 'Words of Wisdom',
+                tier: 2,
+                spells: [
+                    { id: 'priest-chant', name: 'Chant', lvl: 4, cost: 4, failBase: 36, type: 'chant' },
+                    { id: 'priest-orb', name: 'Orb of Draining', lvl: 5, cost: 5, failBase: 44, type: 'bolt', dmg: 22 }
+                ]
+            },
+            {
+                id: 'priest-3',
+                name: 'Exorcism and Dispelling',
+                tier: 3,
+                spells: [
+                    { id: 'priest-dispel-evil', name: 'Dispel Evil', lvl: 7, cost: 8, failBase: 55, type: 'ball', dmg: 35 },
+                    { id: 'priest-heal', name: 'Heal', lvl: 8, cost: 9, failBase: 60, type: 'heal', val: 40 }
+                ]
+            },
+            {
+                id: 'priest-4',
+                name: 'Ethereal Openings',
+                tier: 4,
+                spells: [
+                    { id: 'priest-holy-word', name: 'Holy Word', lvl: 10, cost: 12, failBase: 68, type: 'ball', dmg: 50 }
+                ]
+            }
         ]
     };
 
@@ -170,9 +234,9 @@ window.onload = () => {
         { name: "General Store", owner: "Erick the Honest", types: ['food', 'light'] },
         { name: "Armory", owner: "Mauglin the Grumpy", types: ['armor', 'shield'] },
         { name: "Weaponsmith", owner: "Arndal Beast-Slayer", types: ['weapon'] },
-        { name: "Temple", owner: "Hardblow the Humble", types: ['potion', 'scroll'] },
+        { name: "Temple", owner: "Hardblow the Humble", types: ['potion', 'scroll', 'spellbook'] },
         { name: "Alchemy Shop", owner: "Ga-nat the Greedy", types: ['potion', 'scroll'] },
-        { name: "Magic Shop", owner: "Valeria Starshine", types: ['wand', 'scroll', 'ring'] }
+        { name: "Magic Shop", owner: "Valeria Starshine", types: ['wand', 'scroll', 'ring', 'spellbook'] }
     ];
 
     const HAGGLE_INSULTS = [
@@ -209,6 +273,14 @@ window.onload = () => {
         { type: 'potion', char: '!', color: COLORS.potion, name: 'Health Potion', val: 25, prob: 20, weight: 1 },
         { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Phase Door', val: 40, prob: 15, effect: 'phase', weight: 0 },
         { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Word of Recall', val: 200, prob: 5, effect: 'recall', weight: 0 },
+        { type: 'spellbook', char: '+', color: '#88ccff', name: "Beginners' Handbook", val: 120, prob: 6, weight: 4, spellClass: 'mage', bookId: 'mage-1' },
+        { type: 'spellbook', char: '+', color: '#88ccff', name: 'Conjurings and Tricks', val: 260, prob: 4, weight: 4, spellClass: 'mage', bookId: 'mage-2' },
+        { type: 'spellbook', char: '+', color: '#88ccff', name: 'Incantations and Illusions', val: 420, prob: 3, weight: 4, spellClass: 'mage', bookId: 'mage-3' },
+        { type: 'spellbook', char: '+', color: '#88ccff', name: "Raal's Tome of Destruction", val: 700, prob: 2, weight: 4, spellClass: 'mage', bookId: 'mage-4' },
+        { type: 'spellbook', char: '+', color: '#ffff88', name: "Novice's Book of Prayers", val: 120, prob: 6, weight: 4, spellClass: 'priest', bookId: 'priest-1' },
+        { type: 'spellbook', char: '+', color: '#ffff88', name: 'Words of Wisdom', val: 260, prob: 4, weight: 4, spellClass: 'priest', bookId: 'priest-2' },
+        { type: 'spellbook', char: '+', color: '#ffff88', name: 'Exorcism and Dispelling', val: 420, prob: 3, weight: 4, spellClass: 'priest', bookId: 'priest-3' },
+        { type: 'spellbook', char: '+', color: '#ffff88', name: 'Ethereal Openings', val: 700, prob: 2, weight: 4, spellClass: 'priest', bookId: 'priest-4' },
         { type: 'wand', char: '-', color: COLORS.wand, name: 'Wand of Magic Missile', val: 100, prob: 10, charges: 5, dmg: 15, weight: 1 },
         { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Dagger', atk: 2, val: 10, prob: 20, weight: 1 },
         { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Longsword', atk: 6, val: 80, prob: 15, weight: 4 },
@@ -255,6 +327,7 @@ window.onload = () => {
             this.importSaveFromFile = this.importSaveFromFile.bind(this);
             this.executeBuy = this.executeBuy.bind(this);
             this.executeSell = this.executeSell.bind(this);
+            this.openStudyMenu = this.openStudyMenu.bind(this);
 
             this.bindEvents();
             this.state = 'MAIN_MENU';
@@ -300,7 +373,12 @@ window.onload = () => {
                 stats: { STR: str, INT: int, WIS: wis, DEX: dex, CON: con },
                 inventory: [], 
                 equip: { weapon: null, armor: null, shield: null, light: null, ring: null },
-                knownPrices: {}
+                knownPrices: {},
+                studyPoints: 0,
+                knownSpells: [],
+                castedSpells: {},
+                blessedTurns: 0,
+                chantedTurns: 0
             };
 
             this.player.equip.light = { type: 'light', char: '~', color: COLORS.light, name: 'Wooden Torch', radius: 4, life: 300, val: 5, weight: 2 };
@@ -343,6 +421,11 @@ window.onload = () => {
             if (!this.player.inventory) this.player.inventory = [];
             if (!this.player.equip) this.player.equip = { weapon: null, armor: null, shield: null, light: null, ring: null };
             if (!this.player.knownPrices) this.player.knownPrices = {};
+            if (!Number.isFinite(this.player.studyPoints)) this.player.studyPoints = 0;
+            if (!Array.isArray(this.player.knownSpells)) this.player.knownSpells = [];
+            if (!this.player.castedSpells || typeof this.player.castedSpells !== 'object') this.player.castedSpells = {};
+            if (!Number.isFinite(this.player.blessedTurns)) this.player.blessedTurns = 0;
+            if (!Number.isFinite(this.player.chantedTurns)) this.player.chantedTurns = 0;
             if (typeof this.player.searchMode !== 'boolean') this.player.searchMode = false;
             if (!Number.isFinite(this.player.maxFood) || this.player.maxFood < MAX_FOOD) this.player.maxFood = MAX_FOOD;
             if (!Number.isFinite(this.player.food)) this.player.food = Math.floor(this.player.maxFood / 2);
@@ -483,6 +566,60 @@ window.onload = () => {
             return w;
         }
 
+        getBookById(bookId, magicType) {
+            return (SPELLBOOK_LIBRARY[magicType] || []).find(b => b.id === bookId) || null;
+        }
+
+        getPrimeStatValue() {
+            if (this.player.magicType === 'mage') return this.player.stats.INT;
+            if (this.player.magicType === 'priest') return this.player.stats.WIS;
+            return 10;
+        }
+
+        getKnownSpellObjects() {
+            if (!Array.isArray(this.player.knownSpells)) return [];
+            const known = [];
+            for (const ref of this.player.knownSpells) {
+                const book = this.getBookById(ref.bookId, this.player.magicType);
+                if (!book) continue;
+                const spell = book.spells.find(s => s.id === ref.spellId);
+                if (spell) known.push({ ...spell, bookId: book.id, bookName: book.name });
+            }
+            return known;
+        }
+
+        hasBookInInventory(bookId) {
+            return this.player.inventory.some(i => i.type === 'spellbook' && i.bookId === bookId);
+        }
+
+        getLearnableSpells() {
+            if (this.player.magicType === 'none') return [];
+            const learnable = [];
+            const booksInPack = this.player.inventory.filter(i => i.type === 'spellbook' && i.spellClass === this.player.magicType);
+            const knownIds = new Set((this.player.knownSpells || []).map(s => s.spellId));
+            for (const bookItem of booksInPack) {
+                const book = this.getBookById(bookItem.bookId, this.player.magicType);
+                if (!book) continue;
+                for (const spell of book.spells) {
+                    if (knownIds.has(spell.id)) continue;
+                    if (spell.lvl > this.player.level) continue;
+                    learnable.push({ ...spell, bookId: book.id, bookName: book.name });
+                }
+            }
+            return learnable;
+        }
+
+        calculateSpellFailChance(spell) {
+            const prime = this.getPrimeStatValue();
+            const chance = spell.failBase + (spell.lvl * 3) - (this.player.level * 3) - ((prime - 10) * 2);
+            return Math.max(5, Math.min(95, Math.floor(chance)));
+        }
+
+        maybePromptStudy() {
+            if (this.player.magicType === 'none' || this.player.studyPoints <= 0) return;
+            this.log(`You can study (${this.player.studyPoints}). Press G to gain a new ${this.player.magicType === 'mage' ? 'spell' : 'prayer'}.`, COLORS.player);
+        }
+
         generateShopInventory(shopIdx) {
             let inv = [];
             let numItems = RNG.rand(8, 16);
@@ -617,21 +754,48 @@ window.onload = () => {
                         this.state = 'PLAY'; this.log("Aborted.", COLORS.ui); this.draw();
                     } else if (e.key.length === 1 && e.key >= 'a' && e.key <= 'z') {
                         let idx = e.key.charCodeAt(0) - 97;
-                        let spells = SPELLBOOK[this.player.magicType] ? SPELLBOOK[this.player.magicType].filter(s => s.lvl <= this.player.level) : [];
+                        let spells = this.getKnownSpellObjects();
                         if (idx >= 0 && idx < spells.length) {
                             let spell = spells[idx];
-                            if (this.player.mana >= spell.cost) {
+                            if (!this.hasBookInInventory(spell.bookId)) {
+                                this.log(`You need ${spell.bookName} in your pack to use that.`, COLORS.warn);
+                                this.state = 'PLAY'; this.draw();
+                            } else if (this.player.mana < spell.cost) {
+                                this.log("Not enough mana!", COLORS.warn);
+                                this.state = 'PLAY'; this.draw();
+                            } else {
                                 this.player.mana -= spell.cost;
-                                if (spell.type === 'bolt' || spell.type === 'ball') {
+                                const failChance = this.calculateSpellFailChance(spell);
+                                if (RNG.chance(failChance)) {
+                                    this.log(`You failed to get the ${this.player.magicType === 'mage' ? 'spell' : 'prayer'} off (${failChance}%).`, COLORS.warn);
+                                    this.state = 'PLAY';
+                                    this.advanceTurn();
+                                } else if (spell.type === 'bolt' || spell.type === 'ball') {
                                     this.selectedSpell = spell;
                                     this.promptDirection('SPELL_DIR', "Cast in which direction?");
                                 } else {
                                     this.castSpell(spell, 0, 0);
                                 }
-                            } else {
-                                this.log("Not enough mana!", COLORS.warn);
-                                this.state = 'PLAY'; this.draw();
                             }
+                        }
+                    }
+                    e.preventDefault(); return;
+                }
+
+                if (this.state === 'STUDY_MENU') {
+                    if (e.key === 'Escape' || e.key === ' ') {
+                        this.state = 'PLAY'; this.log("Aborted.", COLORS.ui); this.draw();
+                    } else if (e.key.length === 1 && e.key >= 'a' && e.key <= 'z') {
+                        const idx = e.key.charCodeAt(0) - 97;
+                        const learnable = this.getLearnableSpells();
+                        if (idx >= 0 && idx < learnable.length) {
+                            const spell = learnable[idx];
+                            this.player.knownSpells.push({ spellId: spell.id, bookId: spell.bookId });
+                            this.player.studyPoints = Math.max(0, this.player.studyPoints - 1);
+                            this.state = 'PLAY';
+                            this.log(`You have learned ${spell.name} from ${spell.bookName}.`, COLORS.player);
+                            this.advanceTurn();
+                            return;
                         }
                     }
                     e.preventDefault(); return;
@@ -686,6 +850,9 @@ window.onload = () => {
                         case 'p': 
                             if (this.player.magicType === 'priest') this.openSpellMenu(); 
                             else this.log("You cannot pray."); 
+                            e.preventDefault(); return;
+                        case 'G':
+                            this.openStudyMenu();
                             e.preventDefault(); return;
                         
                         case 'U': this.importSaveFromFile(); e.preventDefault(); return;
@@ -766,6 +933,8 @@ window.onload = () => {
                 this.player.confused--;
                 if (this.player.confused === 0) this.log("You feel less confused.", COLORS.player);
             }
+            if (this.player.blessedTurns > 0) this.player.blessedTurns--;
+            if (this.player.chantedTurns > 0) this.player.chantedTurns--;
             if (this.player.equip.light) {
                 this.player.equip.light.life--;
                 if (this.player.equip.light.life <= 0) {
@@ -794,7 +963,7 @@ window.onload = () => {
             if (this.depth > this.player.maxDepth) this.player.maxDepth = this.depth;
 
             if (this.turn % 15 === 0 && this.player.hp < this.player.maxHp && this.player.food > 0 && this.player.poison === 0) this.player.hp++;
-            if (this.turn % 10 === 0 && this.player.mana < this.player.maxMana) this.player.mana++;
+            if (this.turn % 25 === 0 && this.player.mana < this.player.maxMana) this.player.mana++;
 
             if (this.player.hp <= 0 && this.state !== 'DEAD') {
                 this.state = 'DEAD';
@@ -810,20 +979,45 @@ window.onload = () => {
             if (this.player.magicType === 'none') {
                 this.log("You cannot cast spells.", COLORS.warn); return;
             }
-            let spells = SPELLBOOK[this.player.magicType] ? SPELLBOOK[this.player.magicType].filter(s => s.lvl <= this.player.level) : [];
+            let spells = this.getKnownSpellObjects();
             if (spells.length === 0) {
                 this.log("You don't know any spells yet.", COLORS.warn); return;
             }
             this.state = 'SPELL_MENU'; this.draw();
         }
 
+        openStudyMenu() {
+            if (this.player.magicType === 'none') {
+                this.log("You cannot study magic.", COLORS.warn); return;
+            }
+            if (this.player.studyPoints <= 0) {
+                this.log("You are not ready to study.", COLORS.warn); return;
+            }
+            const learnable = this.getLearnableSpells();
+            if (learnable.length === 0) {
+                this.log("You have nothing you can learn from your current books.", COLORS.warn); return;
+            }
+            this.state = 'STUDY_MENU'; this.draw();
+        }
+
         castSpell(spell, dx, dy) {
             this.state = 'PLAY';
             this.log(`You cast ${spell.name}.`, COLORS.msg);
 
+            if (!this.player.castedSpells[spell.id]) {
+                const bonus = 10 + (spell.lvl * 4);
+                this.player.castedSpells[spell.id] = true;
+                this.player.exp += bonus;
+                this.log(`First successful cast! (+${bonus} EXP)`, COLORS.gold);
+            }
+
             if (spell.type === 'phase') {
                 this.teleportPlayerToSafeLocation();
                 this.log("You blink out and reappear elsewhere!");
+            } else if (spell.type === 'teleport') {
+                this.teleportPlayerToSafeLocation();
+                this.teleportPlayerToSafeLocation();
+                this.log("Space bends and throws you across the dungeon!");
             } else if (spell.type === 'heal') {
                 this.player.hp = Math.min(this.player.maxHp, this.player.hp + spell.val);
                 this.log("You feel much better.");
@@ -838,6 +1032,20 @@ window.onload = () => {
                         }
                     }
                 }
+                this.log("Light floods the surrounding area.");
+            } else if (spell.type === 'bless') {
+                this.player.blessedTurns = Math.max(this.player.blessedTurns, 40);
+                this.log("A blessing settles over you.");
+            } else if (spell.type === 'chant') {
+                this.player.chantedTurns = Math.max(this.player.chantedTurns, 40);
+                this.log("You feel righteous and battle-ready.");
+            } else if (spell.type === 'detect') {
+                let seen = 0;
+                for (const m of this.monsters) {
+                    this.map[m.y][m.x].explored = true;
+                    if (!this.map[m.y][m.x].visible) seen++;
+                }
+                this.log(seen > 0 ? "You sense evil minds nearby." : "You sense no evil nearby.");
             } else if (spell.type === 'bolt' || spell.type === 'ball') {
                 let cx = this.player.x, cy = this.player.y;
                 for (let r=0; r < FOV_RADIUS; r++) {
@@ -1709,11 +1917,12 @@ window.onload = () => {
 
         attackMonster(index) {
             let m = this.monsters[index];
-            let hitChance = 50 + (this.player.stats.DEX - 10) * 2;
+            const meleeBonus = (this.player.blessedTurns > 0 ? 8 : 0) + (this.player.chantedTurns > 0 ? 12 : 0);
+            let hitChance = 50 + (this.player.stats.DEX - 10) * 2 + meleeBonus;
             
             if (RNG.chance(hitChance)) {
                 let wpnAtk = this.player.equip.weapon ? this.player.equip.weapon.atk : 0;
-                let dmg = Math.max(1, RNG.roll(1, 6) + Math.floor((this.player.stats.STR - 10) / 2) + wpnAtk);
+                let dmg = Math.max(1, RNG.roll(1, 6) + Math.floor((this.player.stats.STR - 10) / 2) + wpnAtk + Math.floor(meleeBonus / 8));
                 m.currentHp -= dmg;
                 this.log(`You hit the ${m.name} for ${dmg}.`);
                 
@@ -1743,6 +1952,8 @@ window.onload = () => {
                     let hitChance = 40 + (this.depth * 2);
                     if (RNG.chance(hitChance)) {
                         let totalAC = this.player.ac + (this.player.equip.armor ? this.player.equip.armor.ac : 0) + (this.player.equip.shield ? this.player.equip.shield.ac : 0) + (this.player.equip.ring ? this.player.equip.ring.ac : 0);
+                        if (this.player.blessedTurns > 0) totalAC += 2;
+                        if (this.player.chantedTurns > 0) totalAC += 3;
                         let dmg = Math.max(1, m.atk - Math.floor(totalAC / 3));
                         this.player.hp -= dmg;
                         this.log(`The ${m.name} hits you for ${dmg}.`, COLORS.monster);
@@ -1809,8 +2020,10 @@ window.onload = () => {
                 if (this.player.magicType === 'mage') this.player.maxMana += Math.max(0, this.player.stats.INT - 10);
                 else if (this.player.magicType === 'priest') this.player.maxMana += Math.max(0, this.player.stats.WIS - 10);
                 this.player.mana = this.player.maxMana;
+                if (this.player.magicType !== 'none') this.player.studyPoints++;
 
                 this.log(`Welcome to level ${this.player.level}!`, '#ffff00');
+                this.maybePromptStudy();
             }
         }
 
@@ -1859,6 +2072,7 @@ window.onload = () => {
             else if (this.state === 'INVENTORY' || (this.state === 'SELECT_ITEM' && this.selectAction !== 'TAKEOFF')) this.drawOverlay("--- INVENTORY ---", this.player.inventory, false);
             else if (this.state === 'EQUIPMENT' || (this.state === 'SELECT_ITEM' && this.selectAction === 'TAKEOFF')) this.drawOverlay("--- EQUIPMENT ---", [this.player.equip.weapon, this.player.equip.armor, this.player.equip.shield, this.player.equip.light, this.player.equip.ring], true);
             else if (this.state === 'SPELL_MENU') this.drawSpellOverlay();
+            else if (this.state === 'STUDY_MENU') this.drawStudyOverlay();
             else if (this.state === 'HELP') this.drawHelpOverlay();
         }
 
@@ -1954,13 +2168,31 @@ window.onload = () => {
 
         drawSpellOverlay() {
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)'; this.ctx.fillRect(UI_COLS * CELL_SIZE, CELL_SIZE * TOP_UI_ROWS, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
-            this.drawText("--- SPELLBOOK ---", UI_COLS + 2, 3, COLORS.ui);
+            this.drawText("--- SPELLS ---", UI_COLS + 2, 3, COLORS.ui);
             
-            let spells = SPELLBOOK[this.player.magicType] ? SPELLBOOK[this.player.magicType].filter(s => s.lvl <= this.player.level) : [];
+            let spells = this.getKnownSpellObjects();
             for (let i = 0; i < spells.length; i++) {
                 let s = spells[i];
-                let color = this.player.mana >= s.cost ? COLORS.text : COLORS.wall;
-                this.drawText(`${String.fromCharCode(97+i)}) ${s.name} (Mana: ${s.cost})`, UI_COLS + 2, 5+i, color);
+                let color = this.player.mana >= s.cost && this.hasBookInInventory(s.bookId) ? COLORS.text : COLORS.wall;
+                const fail = this.calculateSpellFailChance(s);
+                const bookTag = this.hasBookInInventory(s.bookId) ? "" : " [No Book]";
+                this.drawText(`${String.fromCharCode(97+i)}) ${s.name} MP:${s.cost} Fail:${fail}% (${s.bookName})${bookTag}`, UI_COLS + 2, 5+i, color);
+            }
+            this.drawText("(Press ESC or Space to close)", UI_COLS + 2, VIEW_ROWS, COLORS.ui);
+        }
+
+        drawStudyOverlay() {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)'; this.ctx.fillRect(UI_COLS * CELL_SIZE, CELL_SIZE * TOP_UI_ROWS, VIEW_COLS * CELL_SIZE, VIEW_ROWS * CELL_SIZE);
+            this.drawText("--- STUDY ---", UI_COLS + 2, 3, COLORS.ui);
+            this.drawText(`Study points: ${this.player.studyPoints}`, UI_COLS + 2, 4, COLORS.player);
+            const learnable = this.getLearnableSpells();
+            if (learnable.length === 0) {
+                this.drawText("You have no learnable spells in carried books.", UI_COLS + 2, 6, COLORS.warn);
+            } else {
+                for (let i = 0; i < learnable.length; i++) {
+                    const s = learnable[i];
+                    this.drawText(`${String.fromCharCode(97+i)}) ${s.name} (Lv${s.lvl}, ${s.bookName})`, UI_COLS + 2, 6+i, COLORS.text);
+                }
             }
             this.drawText("(Press ESC or Space to close)", UI_COLS + 2, VIEW_ROWS, COLORS.ui);
         }
@@ -2001,7 +2233,7 @@ window.onload = () => {
             this.drawText("--- UMORIA-STYLE COMMAND SUMMARY ---", UI_COLS + 2, 3, COLORS.ui);
             this.drawText("a Aim wand | c Close | d Drop | E Eat | e Equipment", UI_COLS + 2, 5, COLORS.text);
             this.drawText("f Fire/Throw | i Inventory | l Look | m Magic | o Open", UI_COLS + 2, 6, COLORS.text);
-            this.drawText("p Pray | q Quaff | r Read scroll | s Search | t Take off", UI_COLS + 2, 7, COLORS.text);
+            this.drawText("G Gain/Study | p Pray | q Quaff | r Read scroll | s Search", UI_COLS + 2, 7, COLORS.text);
             this.drawText("w Wear/Wield | B Bash | C Character | D Disarm | R Rest", UI_COLS + 2, 8, COLORS.text);
             this.drawText("< Up stairs | > Down stairs | T Tunnel | S Search mode", UI_COLS + 2, 9, COLORS.text);
             this.drawText("? Help | X Export | U Import", UI_COLS + 2, 10, COLORS.text);
@@ -2051,6 +2283,7 @@ window.onload = () => {
             this.drawText(`WIS : ${this.player.stats.WIS}`, uiX, TOP_UI_ROWS + 15, COLORS.text);
             this.drawText(`DEX : ${this.player.stats.DEX}`, uiX, TOP_UI_ROWS + 16, COLORS.text);
             this.drawText(`CON : ${this.player.stats.CON}`, uiX, TOP_UI_ROWS + 17, COLORS.text);
+            if (this.player.studyPoints > 0) this.drawText(`STUDY: ${this.player.studyPoints} (G)`, uiX, TOP_UI_ROWS + 19, COLORS.player);
             this.drawText(`CHR : ${this.player.stats.CHR || 10}`, uiX, TOP_UI_ROWS + 18, COLORS.text);
 
             let statusStr = "";
