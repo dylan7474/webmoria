@@ -1894,7 +1894,6 @@ window.onload = () => {
             this.drawText(statusStr, uiX, 3, COLORS.warn);
 
             this.drawText(`STR: ${this.player.stats.STR}`, uiX, 5, COLORS.text); this.drawText(`DEX: ${this.player.stats.DEX}`, uiX, 6, COLORS.text); this.drawText(`CON: ${this.player.stats.CON}`, uiX, 7, COLORS.text);
-            this.drawText(`SEARCH MODE: ${this.player.searchMode ? 'ON' : 'OFF'}`, uiX, 8, this.player.searchMode ? COLORS.warn : COLORS.ui);
             this.drawText(`LVL: ${this.player.level}`, uiX, 9, COLORS.text); this.drawText(`EXP: ${this.player.exp}`, uiX, 10, COLORS.text); 
             this.drawText(`HP : ${this.player.hp}/${this.player.maxHp}`, uiX, 11, COLORS.player);
             this.drawText(`MNA: ${this.player.mana}/${this.player.maxMana}`, uiX, 12, '#5555ff');
