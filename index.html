@@ -155,7 +155,7 @@ window.onload = () => {
         mage: [
             {
                 id: 'mage-1',
-                name: "Beginners' Handbook",
+                name: '[Beginners-Magik]',
                 tier: 1,
                 spells: [
                     { id: 'mage-magic-missile', name: 'Magic Missile', lvl: 1, cost: 1, failBase: 22, type: 'bolt', dmg: 10 },
@@ -165,7 +165,7 @@ window.onload = () => {
             },
             {
                 id: 'mage-2',
-                name: 'Conjurings and Tricks',
+                name: '[Magik I]',
                 tier: 2,
                 spells: [
                     { id: 'mage-cure-poison', name: 'Cure Poison', lvl: 4, cost: 4, failBase: 38, type: 'cure' },
@@ -174,7 +174,7 @@ window.onload = () => {
             },
             {
                 id: 'mage-3',
-                name: 'Incantations and Illusions',
+                name: '[Magik II]',
                 tier: 3,
                 spells: [
                     { id: 'mage-teleport', name: 'Teleport', lvl: 6, cost: 7, failBase: 52, type: 'teleport' },
@@ -183,7 +183,7 @@ window.onload = () => {
             },
             {
                 id: 'mage-4',
-                name: 'Raal\'s Tome of Destruction',
+                name: "[The Mages' Guide to Power]",
                 tier: 4,
                 spells: [
                     { id: 'mage-ice-storm', name: 'Ice Storm', lvl: 9, cost: 12, failBase: 65, type: 'ball', dmg: 45 }
@@ -193,7 +193,7 @@ window.onload = () => {
         priest: [
             {
                 id: 'priest-1',
-                name: 'Novice\'s Book of Prayers',
+                name: '[Beginners Handbook]',
                 tier: 1,
                 spells: [
                     { id: 'priest-cure-light', name: 'Cure Light Wounds', lvl: 1, cost: 2, failBase: 20, type: 'heal', val: 15 },
@@ -203,7 +203,7 @@ window.onload = () => {
             },
             {
                 id: 'priest-2',
-                name: 'Words of Wisdom',
+                name: '[Words of Wisdom]',
                 tier: 2,
                 spells: [
                     { id: 'priest-chant', name: 'Chant', lvl: 4, cost: 4, failBase: 36, type: 'chant' },
@@ -212,7 +212,7 @@ window.onload = () => {
             },
             {
                 id: 'priest-3',
-                name: 'Exorcism and Dispelling',
+                name: '[Chants and Blessings]',
                 tier: 3,
                 spells: [
                     { id: 'priest-dispel-evil', name: 'Dispel Evil', lvl: 7, cost: 8, failBase: 55, type: 'ball', dmg: 35 },
@@ -221,7 +221,7 @@ window.onload = () => {
             },
             {
                 id: 'priest-4',
-                name: 'Ethereal Openings',
+                name: '[Exorcism and Dispelling]',
                 tier: 4,
                 spells: [
                     { id: 'priest-holy-word', name: 'Holy Word', lvl: 10, cost: 12, failBase: 68, type: 'ball', dmg: 50 }
@@ -273,14 +273,14 @@ window.onload = () => {
         { type: 'potion', char: '!', color: COLORS.potion, name: 'Health Potion', val: 25, prob: 20, weight: 1 },
         { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Phase Door', val: 40, prob: 15, effect: 'phase', weight: 0 },
         { type: 'scroll', char: '?', color: COLORS.scroll, name: 'Scroll of Word of Recall', val: 200, prob: 5, effect: 'recall', weight: 0 },
-        { type: 'spellbook', char: '+', color: '#88ccff', name: "Beginners' Handbook", val: 120, prob: 6, weight: 4, spellClass: 'mage', bookId: 'mage-1' },
-        { type: 'spellbook', char: '+', color: '#88ccff', name: 'Conjurings and Tricks', val: 260, prob: 4, weight: 4, spellClass: 'mage', bookId: 'mage-2' },
-        { type: 'spellbook', char: '+', color: '#88ccff', name: 'Incantations and Illusions', val: 420, prob: 3, weight: 4, spellClass: 'mage', bookId: 'mage-3' },
-        { type: 'spellbook', char: '+', color: '#88ccff', name: "Raal's Tome of Destruction", val: 700, prob: 2, weight: 4, spellClass: 'mage', bookId: 'mage-4' },
-        { type: 'spellbook', char: '+', color: '#ffff88', name: "Novice's Book of Prayers", val: 120, prob: 6, weight: 4, spellClass: 'priest', bookId: 'priest-1' },
-        { type: 'spellbook', char: '+', color: '#ffff88', name: 'Words of Wisdom', val: 260, prob: 4, weight: 4, spellClass: 'priest', bookId: 'priest-2' },
-        { type: 'spellbook', char: '+', color: '#ffff88', name: 'Exorcism and Dispelling', val: 420, prob: 3, weight: 4, spellClass: 'priest', bookId: 'priest-3' },
-        { type: 'spellbook', char: '+', color: '#ffff88', name: 'Ethereal Openings', val: 700, prob: 2, weight: 4, spellClass: 'priest', bookId: 'priest-4' },
+        { type: 'spellbook', char: '+', color: '#88ccff', name: '[Beginners-Magik]', val: 120, prob: 6, weight: 4, spellClass: 'mage', bookId: 'mage-1' },
+        { type: 'spellbook', char: '+', color: '#88ccff', name: '[Magik I]', val: 260, prob: 4, weight: 4, spellClass: 'mage', bookId: 'mage-2' },
+        { type: 'spellbook', char: '+', color: '#88ccff', name: '[Magik II]', val: 420, prob: 3, weight: 4, spellClass: 'mage', bookId: 'mage-3' },
+        { type: 'spellbook', char: '+', color: '#88ccff', name: "[The Mages' Guide to Power]", val: 700, prob: 2, weight: 4, spellClass: 'mage', bookId: 'mage-4' },
+        { type: 'spellbook', char: '+', color: '#ffff88', name: '[Beginners Handbook]', val: 120, prob: 6, weight: 4, spellClass: 'priest', bookId: 'priest-1' },
+        { type: 'spellbook', char: '+', color: '#ffff88', name: '[Words of Wisdom]', val: 260, prob: 4, weight: 4, spellClass: 'priest', bookId: 'priest-2' },
+        { type: 'spellbook', char: '+', color: '#ffff88', name: '[Chants and Blessings]', val: 420, prob: 3, weight: 4, spellClass: 'priest', bookId: 'priest-3' },
+        { type: 'spellbook', char: '+', color: '#ffff88', name: '[Exorcism and Dispelling]', val: 700, prob: 2, weight: 4, spellClass: 'priest', bookId: 'priest-4' },
         { type: 'wand', char: '-', color: COLORS.wand, name: 'Wand of Magic Missile', val: 100, prob: 10, charges: 5, dmg: 15, weight: 1 },
         { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Dagger', atk: 2, val: 10, prob: 20, weight: 1 },
         { type: 'weapon', char: '|', color: COLORS.weapon, name: 'Longsword', atk: 6, val: 80, prob: 15, weight: 4 },
