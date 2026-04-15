@@ -383,6 +383,13 @@ window.onload = () => {
             };
 
             this.player.equip.light = { type: 'light', char: '~', color: COLORS.light, name: 'Wooden Torch', radius: 4, life: 300, val: 5, weight: 2 };
+            if (this.player.magicType === 'mage' || this.player.magicType === 'priest') {
+                const starterBookId = this.player.magicType === 'mage' ? 'mage-1' : 'priest-1';
+                const starterBook = LOOT_TABLE.find(item => item.type === 'spellbook' && item.bookId === starterBookId);
+                if (starterBook) {
+                    this.player.inventory.push({ ...starterBook, quantity: 1 });
+                }
+            }
 
             this.shops = Array(6).fill(0).map((_, i) => this.generateShopInventory(i));
             this.state = 'PLAY';
