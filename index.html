@@ -1840,6 +1840,19 @@ window.onload = () => {
         }
 
         generateDungeon(goingUp) {
+            const carveFloor = (x, y) => {
+                const existing = this.map[y][x];
+                this.map[y][x] = {
+                    char: '.',
+                    explored: false,
+                    visible: false,
+                    solid: false,
+                    opaque: false,
+                    roomId: existing.roomId,
+                    roomPermaLit: existing.roomPermaLit
+                };
+            };
+
             this.map = Array(MAP_ROWS).fill(0).map(() => Array(MAP_COLS).fill(0).map(() => ({
                 char: '#', explored: false, visible: false, solid: true, opaque: true
             }))); 
@@ -1870,11 +1883,11 @@ window.onload = () => {
             for (let i = 1; i < rooms.length; i++) {
                 let r1 = rooms[i - 1], r2 = rooms[i];
                 if (RNG.chance(50)) {
-                    for (let x = Math.min(r1.cx, r2.cx); x <= Math.max(r1.cx, r2.cx); x++) this.map[r1.cy][x] = { char: '.', explored: false, visible: false, solid: false, opaque: false };
-                    for (let y = Math.min(r1.cy, r2.cy); y <= Math.max(r1.cy, r2.cy); y++) this.map[y][r2.cx] = { char: '.', explored: false, visible: false, solid: false, opaque: false };
+                    for (let x = Math.min(r1.cx, r2.cx); x <= Math.max(r1.cx, r2.cx); x++) carveFloor(x, r1.cy);
+                    for (let y = Math.min(r1.cy, r2.cy); y <= Math.max(r1.cy, r2.cy); y++) carveFloor(r2.cx, y);
                 } else {
-                    for (let y = Math.min(r1.cy, r2.cy); y <= Math.max(r1.cy, r2.cy); y++) this.map[y][r1.cx] = { char: '.', explored: false, visible: false, solid: false, opaque: false };
-                    for (let x = Math.min(r1.cx, r2.cx); x <= Math.max(r1.cx, r2.cx); x++) this.map[r2.cy][x] = { char: '.', explored: false, visible: false, solid: false, opaque: false };
+                    for (let y = Math.min(r1.cy, r2.cy); y <= Math.max(r1.cy, r2.cy); y++) carveFloor(r1.cx, y);
+                    for (let x = Math.min(r1.cx, r2.cx); x <= Math.max(r1.cx, r2.cx); x++) carveFloor(x, r2.cy);
                 }
             }
             // Veins, Doors, Traps
