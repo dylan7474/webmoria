@@ -1856,6 +1856,15 @@ window.onload = () => {
                         char: '.', explored: false, visible: false, solid: false, opaque: false,
                         roomId: newRoom.id, roomPermaLit: newRoom.permaLit
                     };
+                    for (let ry = y - 1; ry <= y + h; ry++) {
+                        for (let rx = x - 1; rx <= x + w; rx++) {
+                            let borderCell = this.map[ry][rx];
+                            if (borderCell.char === '#') {
+                                borderCell.roomId = newRoom.id;
+                                borderCell.roomPermaLit = newRoom.permaLit;
+                            }
+                        }
+                    }
                 }
             }
             for (let i = 1; i < rooms.length; i++) {
